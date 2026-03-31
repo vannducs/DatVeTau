@@ -1,0 +1,110 @@
+---NHÓM QUẢN LÝ CƠ SỞ HẠ TẦNG
+-- 1. Bảng Ga Tàu (Danh mục các ga trên toàn quốc)
+CREATE TABLE Stations (
+    station_id SERIAL PRIMARY KEY,        -- Mã ID tự tăng, khóa chính
+    name VARCHAR(100) NOT NULL,           -- Tên ga (Ví dụ: Ga Hà Nội, Ga Vinh)
+    city VARCHAR(100),                    -- Thành phố/Tỉnh của ga đó
+    address TEXT,                         -- Địa chỉ chi tiết
+    station_code VARCHAR(10) UNIQUE       -- Mã hiệu ga (Ví dụ: HAN, SGO)
+);
+
+-- 2. Bảng Đoàn Tàu (Danh mục các mác tàu)
+CREATE TABLE Trains (
+    train_id SERIAL PRIMARY KEY,          -- Mã ID tàu
+    train_code VARCHAR(20) UNIQUE NOT NULL, -- Số hiệu tàu (Ví dụ: SE1, SE3, NA1)
+    train_type VARCHAR(50),               -- Loại tàu (Tàu nhanh, tàu chợ, tàu chất lượng cao)
+    description TEXT                      -- Mô tả thêm về tàu
+);
+
+---NHÓM QUẢN LÝ TOA XE, CHỖ NGỒI
+-- 3. Bảng Toa Xe (Chi tiết các toa trên một đoàn tàu)
+CREATE TABLE Carriages (
+    carriage_id SERIAL PRIMARY KEY,       -- Mã ID toa
+    train_id INT REFERENCES Trains(train_id), -- Thuộc về đoàn tàu nào
+    carriage_no INT NOT NULL,             -- Số thứ tự toa trên tàu (Toa 1, Toa 2...)
+    carriage_type_code VARCHAR(20),       -- Mã loại toa (Ví dụ: NML - Ngồi mềm lạnh, AnLT - Ăn nằm điều hòa)
+    total_seats INT                       -- Tổng số ghế/giường trong toa này
+);
+
+-- 4. Bảng Chỗ Ngồi (Chi tiết từng ghế/giường)
+CREATE TABLE Seats (
+    seat_id SERIAL PRIMARY KEY,           -- Mã ID chỗ ngồi
+    carriage_id INT REFERENCES Carriages(carriage_id), -- Thuộc toa nào
+    seat_number VARCHAR(10) NOT NULL,     -- Số ghế (Ví dụ: 01, 02...)
+    floor_no INT DEFAULT 1,               -- Tầng (1 hoặc 2, dành cho toa nằm)
+    is_window_side BOOLEAN                -- Có phải cạnh cửa sổ không (Tiện ích thêm)
+);
+
+---NHÓM QUẢN LÝ LỊCH TRÌNH VÀ HÀNH TRÌNH
+-- 5. Bảng Lịch trình (Một chuyến đi cụ thể vào một ngày cụ thể)
+CREATE TABLE Schedules (
+    schedule_id SERIAL PRIMARY KEY,       -- Mã lịch trình
+    train_id INT REFERENCES Trains(train_id), -- Tàu nào chạy
+    departure_date DATE NOT NULL          -- Ngày khởi hành chính thức
+);
+
+-- 6. Bảng Chi tiết Lộ trình (Tàu dừng ở ga nào, lúc mấy giờ)
+CREATE TABLE Schedule_Details (
+    detail_id SERIAL PRIMARY KEY,
+    schedule_id INT REFERENCES Schedules(schedule_id),
+    station_id INT REFERENCES Stations(station_id), -- Ga dừng
+    arrival_time TIMESTAMP,               -- Giờ tàu đến ga này
+    departure_time TIMESTAMP,             -- Giờ tàu rời ga này để đi ga tiếp theo
+    stop_order INT NOT NULL               -- Thứ tự ga trong hành trình (Ga 1, Ga 2...)
+);
+
+---NHÓM QUẢN LÝ GIÁ VÉ & ĐẶT CHỖ
+-- 7. Bảng Giá vé (Tính toán theo chặng và loại toa)
+CREATE TABLE Ticket_Prices (
+    price_id SERIAL PRIMARY KEY,
+    schedule_id INT REFERENCES Schedules(schedule_id),
+    from_station_id INT REFERENCES Stations(station_id), -- Ga bắt đầu chặng
+    to_station_id INT REFERENCES Stations(station_id),   -- Ga kết thúc chặng
+    carriage_type_code VARCHAR(20),      -- Loại toa áp dụng mức giá này
+    price DECIMAL(12, 2) NOT NULL        -- Số tiền (VNĐ)
+);
+
+-- 8. Bảng Khách hàng
+CREATE TABLE Customers (
+    customer_id SERIAL PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,      -- Họ tên người mua/đi
+    id_card VARCHAR(20) UNIQUE,           -- Số CCCD/Hộ chiếu (Bắt buộc theo dsvn.vn)
+    phone VARCHAR(15),                    -- Số điện thoại liên lạc
+    email VARCHAR(100)                    -- Email nhận vé điện tử
+);
+
+-- 9. Bảng Vé/Đặt chỗ
+CREATE TABLE Bookings (
+    booking_id SERIAL PRIMARY KEY,
+    customer_id INT REFERENCES Customers(customer_id), -- Ai đặt
+    schedule_id INT REFERENCES Schedules(schedule_id), -- Chuyến tàu nào
+    seat_id INT REFERENCES Seats(seat_id),             -- Ghế cụ thể nào
+    from_station_id INT REFERENCES Stations(station_id), -- Đi từ ga nào
+    to_station_id INT REFERENCES Stations(station_id),   -- Đến ga nào
+    booking_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,    -- Thời điểm đặt vé
+    status VARCHAR(20),                  -- Trạng thái: 'Đã thanh toán', 'Đang giữ chỗ', 'Đã hủy'
+    total_amount DECIMAL(12, 2)          -- Tổng tiền cuối cùng
+);
+
+---NHÓM QUẢN LÝ TUYẾN VÀ CHUYẾN
+-- 1. Bảng Tuyến đường
+CREATE TABLE Routes (
+    route_id SERIAL PRIMARY KEY,
+    route_name VARCHAR(255) NOT NULL,    -- Tên tuyến (VD: Tuyến Bắc Nam)
+    description TEXT
+);
+
+-- 2. Bảng Phân đoạn Tuyến (Quản lý thứ tự ga)
+CREATE TABLE Route_Segments (
+    segment_id SERIAL PRIMARY KEY,
+    route_id INT REFERENCES Routes(route_id),
+    station_id INT REFERENCES Stations(station_id),
+    stop_order INT NOT NULL,             -- Thứ tự dừng (1, 2, 3...)
+    distance_from_start INT,             -- Khoảng cách từ ga gốc (km)
+    travel_time_offset INT,              -- Thời gian chạy từ ga gốc (phút)
+    UNIQUE(route_id, stop_order)         -- Đảm bảo một tuyến không có 2 ga trùng thứ tự
+);
+
+-- 3. Cập nhật bảng Schedules (Lịch trình)
+-- Thay vì lưu ga đi/đến, ta chỉ cần liên kết với một Route cụ thể
+ALTER TABLE Schedules ADD COLUMN route_id INT REFERENCES Routes(route_id);
