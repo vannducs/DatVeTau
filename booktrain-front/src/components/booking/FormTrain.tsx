@@ -1,14 +1,14 @@
-import { MapPin, Calendar, Search, ArrowRightLeft } from "lucide-react"
-import PassengerSelector from "./PassengerSelector"
+import { MapPin, Calendar, Search, Users, ArrowRightLeft } from "lucide-react"
 
 export default function FormTrain() {
   return (
     <div className="form-body">
-      <div className="row-locations">
+      {/* Origin & Destination */}
+      <div className="row-grid-2">
         <div className="field-block">
           <label>Nơi xuất phát</label>
           <div className="field-card">
-            <MapPin size={18} className="icon-blue" />
+            <MapPin size={20} className="icon-blue" />
             <div className="field-content">
               <div className="field-title">Vinh</div>
               <div className="field-sub">Ga Vinh</div>
@@ -19,24 +19,25 @@ export default function FormTrain() {
         <div className="field-block">
           <label>Nơi đến</label>
           <div className="field-card">
-            <MapPin size={18} className="icon-red" />
+            <MapPin size={20} className="icon-red" />
             <div className="field-content">
               <div className="field-title">Đà Nẵng</div>
               <div className="field-sub">Ga Đà Nẵng</div>
             </div>
             <button type="button" className="swap-btn" aria-label="Đổi chiều">
-              <ArrowRightLeft size={18} />
+              <ArrowRightLeft size={20} />
             </button>
           </div>
         </div>
       </div>
 
-      <div className="row-date-search">
-        <div className="field-block field-block-date">
+      {/* Date & Search */}
+      <div className="row-grid-3">
+        <div className="field-block">
           <label>Ngày đi</label>
           <div className="field-card">
-            <Calendar size={18} className="icon-blue" />
-            <div className="field-title field-title-inline">13, 09/12/2025</div>
+            <Calendar size={20} className="icon-blue" />
+            <div className="field-title">13, 09/12/2025</div>
           </div>
         </div>
 
@@ -45,12 +46,24 @@ export default function FormTrain() {
         </div>
 
         <button type="button" className="search-btn">
-          <Search size={18} />
+          <Search size={20} />
           <span>Tìm kiếm</span>
         </button>
       </div>
 
-      <PassengerSelector />
+      {/* Passenger Row */}
+      <div className="passenger-row-figma">
+        <div className="passenger-total">
+          <Users size={20} className="icon-muted" />
+          <span>1 Hành khách</span>
+        </div>
+        <div className="passenger-detail">
+          <span className="passenger-adult">👤 1 Người lớn</span>
+          <span>👶 0 Trẻ em</span>
+          <span>🎓 0 Sinh viên</span>
+          <span>👴 0 Người cao tuổi</span>
+        </div>
+      </div>
     </div>
   )
 }

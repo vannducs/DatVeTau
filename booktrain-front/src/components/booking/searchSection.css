@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 .search-section {
   background: url("/images/bg.jpg") center/cover no-repeat;
   min-height: 560px;
@@ -37,6 +39,7 @@
   color: #111827;
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.16);
   text-align: left;
+  font-family: "Google Sans Flex", system-ui, sans-serif;
 }
 
 .tabs {
@@ -44,6 +47,7 @@
   gap: 4px;
   margin-bottom: 14px;
   border-bottom: 1px solid #e5e7eb;
+  font-family: "Google Sans Flex", system-ui, sans-serif;
 }
 
 .tab-item {
@@ -75,11 +79,20 @@
   color: white;
   border-radius: 999px;
   font-size: 10px;
+  font-weight: 600;
   line-height: 1;
   padding: 2px 6px;
+  font-family: "Google Sans Flex", system-ui, sans-serif;
 }
 
 /* === Form layout === */
+.form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: "Google Sans Flex", system-ui, sans-serif;
+}
+
 .search-form {
   display: flex;
   flex-direction: column;
@@ -262,25 +275,196 @@
     border-radius: 12px;
   }
 
-  .row-locations {
+  .row-grid-2 {
     grid-template-columns: 1fr;
   }
 
-  .row-date-search {
-    flex-wrap: wrap;
-  }
-
-  .field-block-date {
-    flex: 1 1 100%;
+  .row-grid-3 {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .return-link-wrap {
-    flex: 1;
+    padding-bottom: 0;
   }
 
   .search-btn {
-    flex: 1 1 100%;
+    width: 100%;
+    height: 48px;
   }
+
+  .passenger-row-figma {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .passenger-detail {
+    gap: 12px;
+  }
+}
+
+/* ========================
+   Figma Style - Form Body
+   ======================== */
+
+/* Grid 2 cột: Nơi xuất phát | Nơi đến */
+.row-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Grid 3 cột: Ngày đi | Thêm ngày về | Tìm kiếm */
+.row-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+/* === Field === */
+.field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-block label {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.field-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 2px solid #d1d5db;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.field-card:hover {
+  border-color: #2F6FED;
+}
+
+.field-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: #111827;
+}
+
+.field-sub {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.icon-blue {
+  color: #2F6FED;
+  flex-shrink: 0;
+}
+
+.icon-red {
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.icon-muted {
+  color: #6b7280;
+}
+
+.swap-btn {
+  background: #f3f4f6;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.swap-btn:hover {
+  background: #e5e7eb;
+}
+
+.return-link-wrap {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 12px;
+}
+
+.return-link {
+  background: transparent;
+  border: none;
+  color: #2F6FED;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: "Google Sans Flex", system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+.search-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #FFC107;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 20px;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: "Google Sans Flex", system-ui, sans-serif;
+  height: 52px;
+}
+
+/* === Passenger Row (Figma) === */
+.passenger-row-figma {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+}
+
+.passenger-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.passenger-detail {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.passenger-adult {
+  color: #2F6FED;
+  font-weight: 500;
 }
 
 /* === Chevron & placeholder icons === */
@@ -305,13 +489,10 @@
 
 /* === Row variants === */
 .row-flight-second {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto auto;
+  gap: 16px;
   align-items: flex-end;
-  gap: 10px;
-}
-
-.row-flight-second .field-block-date {
-  flex: 1;
 }
 
 /* === Disabled tab === */
@@ -324,11 +505,11 @@
   transform: none;
 }
 
-/* === Passenger Selector === */
+/* === Passenger Selector (dropdown - dùng cho Flight) === */
 .passenger-selector-wrap {
   position: relative;
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid #e5e7eb;
 }
 
@@ -336,7 +517,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 2px solid #d1d5db;
   border-radius: 10px;
   cursor: pointer;

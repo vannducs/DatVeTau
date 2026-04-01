@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react"
-import { Users } from "lucide-react"
-import PassengerDropdown, { PassengerCount } from "./PassengerDropdown"
+import { Users, ChevronDown } from "lucide-react"
+import PassengerDropdown from "./PassengerDropdown"
+import type { PassengerCount } from "./PassengerDropdown"
 
 const initialCount: PassengerCount = {
   adult: 1,
   child: 0,
-  student: 0,
   elderly: 0,
 }
 
@@ -14,7 +14,6 @@ export default function PassengerSelector() {
   const [count, setCount] = useState<PassengerCount>(initialCount)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
-  // Click outside → đóng dropdown
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
@@ -27,20 +26,18 @@ export default function PassengerSelector() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [isOpen])
 
-  const total = count.adult + count.child + count.student + count.elderly
+  const total = count.adult + count.child + count.elderly
 
   function formatLabel() {
     const parts = []
     if (count.adult > 0) parts.push(`👤 ${count.adult} Người lớn`)
     if (count.child > 0) parts.push(`👶 ${count.child} Trẻ em`)
-    if (count.student > 0) parts.push(`🎓 ${count.student} Sinh viên`)
     if (count.elderly > 0) parts.push(`👴 ${count.elderly} Người cao tuổi`)
-    return parts.length > 0 ? parts.join(" · ") : "Chọn hành khách"
+    return parts.join(" · ")
   }
 
   return (
     <div className="passenger-selector-wrap" ref={wrapperRef}>
-      {/* Trigger — click để mở dropdown */}
       <div
         className={`passenger-field${isOpen ? " passenger-field-active" : ""}`}
         onClick={() => setIsOpen((v) => !v)}
@@ -57,9 +54,9 @@ export default function PassengerSelector() {
           </div>
           <div className="passenger-field-breakdown">{formatLabel()}</div>
         </div>
+        <ChevronDown size={16} className="icon-chevron" />
       </div>
 
-      {/* Dropdown */}
       {isOpen && (
         <div className="passenger-dropdown-anchor">
           <PassengerDropdown

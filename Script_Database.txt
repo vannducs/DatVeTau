@@ -1,110 +1,1073 @@
----NHÓM QUẢN LÝ CƠ SỞ HẠ TẦNG
--- 1. Bảng Ga Tàu (Danh mục các ga trên toàn quốc)
-CREATE TABLE Stations (
-    station_id SERIAL PRIMARY KEY,        -- Mã ID tự tăng, khóa chính
-    name VARCHAR(100) NOT NULL,           -- Tên ga (Ví dụ: Ga Hà Nội, Ga Vinh)
-    city VARCHAR(100),                    -- Thành phố/Tỉnh của ga đó
-    address TEXT,                         -- Địa chỉ chi tiết
-    station_code VARCHAR(10) UNIQUE       -- Mã hiệu ga (Ví dụ: HAN, SGO)
-);
+-- ============================================================
+--  HỆ THỐNG ĐẶT VÉ XE / MÁY BAY / TÀU HỎA (kiểu Vexere)
+--  PostgreSQL Schema
+--  Tên bảng & cột: Tiếng Anh | Chú thích: Tiếng Việt
+--  ID: SERIAL (tự tăng 1, 2, 3,...)
+-- ============================================================
 
--- 2. Bảng Đoàn Tàu (Danh mục các mác tàu)
-CREATE TABLE Trains (
-    train_id SERIAL PRIMARY KEY,          -- Mã ID tàu
-    train_code VARCHAR(20) UNIQUE NOT NULL, -- Số hiệu tàu (Ví dụ: SE1, SE3, NA1)
-    train_type VARCHAR(50),               -- Loại tàu (Tàu nhanh, tàu chợ, tàu chất lượng cao)
-    description TEXT                      -- Mô tả thêm về tàu
-);
+-- ============================================================
+-- PHẦN 1: NGƯỜI DÙNG & TÁC NHÂN
+-- ============================================================
 
----NHÓM QUẢN LÝ TOA XE, CHỖ NGỒI
--- 3. Bảng Toa Xe (Chi tiết các toa trên một đoàn tàu)
-CREATE TABLE Carriages (
-    carriage_id SERIAL PRIMARY KEY,       -- Mã ID toa
-    train_id INT REFERENCES Trains(train_id), -- Thuộc về đoàn tàu nào
-    carriage_no INT NOT NULL,             -- Số thứ tự toa trên tàu (Toa 1, Toa 2...)
-    carriage_type_code VARCHAR(20),       -- Mã loại toa (Ví dụ: NML - Ngồi mềm lạnh, AnLT - Ăn nằm điều hòa)
-    total_seats INT                       -- Tổng số ghế/giường trong toa này
+CREATE TABLE users (
+    id                  SERIAL       PRIMARY KEY,                                           -- Mã người dùng (tự tăng)
+    full_name           VARCHAR(100) NOT NULL,                                              -- Họ và tên đầy đủ
+    email               VARCHAR(150) UNIQUE NOT NULL,                                       -- Địa chỉ email đăng nhập
+    password       		VARCHAR(255) NOT NULL,                                              -- Mật khẩu đã mã hoá (bcrypt)
+    phone_number        VARCHAR(15),                                                        -- Số điện thoại liên hệ
+    date_of_birth       DATE,                                                               -- Ngày sinh
+    gender              VARCHAR(10)  CHECK (gender IN ('male','female','other')),           -- Giới tính
+    avatar_url          TEXT,                                                               -- URL ảnh đại diện
+    account_type        VARCHAR(20)  NOT NULL
+                            CHECK (account_type IN ('customer','partner','admin')),         -- Loại tài khoản: khách hàng / đối tác / quản trị
+    status              VARCHAR(20)  NOT NULL DEFAULT 'active'
+                            CHECK (status IN ('active','locked','pending')),                -- Trạng thái: hoạt động / bị khoá / chờ duyệt
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),                                 -- Thời điểm tạo tài khoản
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()                                  -- Thời điểm cập nhật gần nhất
 );
+COMMENT ON TABLE users IS 'Tài khoản người dùng hệ thống (khách hàng / đối tác / admin)';
 
--- 4. Bảng Chỗ Ngồi (Chi tiết từng ghế/giường)
-CREATE TABLE Seats (
-    seat_id SERIAL PRIMARY KEY,           -- Mã ID chỗ ngồi
-    carriage_id INT REFERENCES Carriages(carriage_id), -- Thuộc toa nào
-    seat_number VARCHAR(10) NOT NULL,     -- Số ghế (Ví dụ: 01, 02...)
-    floor_no INT DEFAULT 1,               -- Tầng (1 hoặc 2, dành cho toa nằm)
-    is_window_side BOOLEAN                -- Có phải cạnh cửa sổ không (Tiện ích thêm)
+
+CREATE TABLE partners (
+    id                  SERIAL       PRIMARY KEY,                                           -- Mã đối tác (tự tăng)
+    user_id             INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,       -- Liên kết tài khoản users
+    company_name        VARCHAR(200) NOT NULL,                                              -- Tên công ty / nhà xe / hãng bay
+    tax_code            VARCHAR(30)  UNIQUE,                                                -- Mã số thuế doanh nghiệp
+    address             TEXT,                                                               -- Địa chỉ trụ sở
+    website             VARCHAR(255),                                                       -- Website của đối tác
+    logo_url            TEXT,                                                               -- URL logo
+    partner_type        VARCHAR(20)  NOT NULL
+                            CHECK (partner_type IN ('bus_company','airline','railway')),    -- Loại đối tác: nhà xe / hãng bay / đường sắt
+    contract_date       DATE,                                                               -- Ngày ký hợp đồng với Vexere
+    commission_rate     NUMERIC(5,2) DEFAULT 10.00,                                        -- Tỷ lệ hoa hồng Vexere (%)
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()                                  -- Thời điểm tạo
 );
+COMMENT ON TABLE partners IS 'Thông tin đối tác: nhà xe, hãng bay, đường sắt';
 
----NHÓM QUẢN LÝ LỊCH TRÌNH VÀ HÀNH TRÌNH
--- 5. Bảng Lịch trình (Một chuyến đi cụ thể vào một ngày cụ thể)
-CREATE TABLE Schedules (
-    schedule_id SERIAL PRIMARY KEY,       -- Mã lịch trình
-    train_id INT REFERENCES Trains(train_id), -- Tàu nào chạy
-    departure_date DATE NOT NULL          -- Ngày khởi hành chính thức
+
+-- ============================================================
+-- PHẦN 2: ĐỊA ĐIỂM
+-- ============================================================
+
+CREATE TABLE provinces (
+    id          SERIAL       PRIMARY KEY,                        -- Mã tỉnh / thành phố (tự tăng)
+    name        VARCHAR(100) NOT NULL,                           -- Tên tỉnh / thành phố
+    region_code VARCHAR(10),                                     -- Mã vùng (VD: HN, HCM, DN)
+    country     VARCHAR(50)  DEFAULT 'Vietnam'                   -- Quốc gia
 );
+COMMENT ON TABLE provinces IS 'Danh mục tỉnh / thành phố';
 
--- 6. Bảng Chi tiết Lộ trình (Tàu dừng ở ga nào, lúc mấy giờ)
-CREATE TABLE Schedule_Details (
-    detail_id SERIAL PRIMARY KEY,
-    schedule_id INT REFERENCES Schedules(schedule_id),
-    station_id INT REFERENCES Stations(station_id), -- Ga dừng
-    arrival_time TIMESTAMP,               -- Giờ tàu đến ga này
-    departure_time TIMESTAMP,             -- Giờ tàu rời ga này để đi ga tiếp theo
-    stop_order INT NOT NULL               -- Thứ tự ga trong hành trình (Ga 1, Ga 2...)
+
+CREATE TABLE locations (
+    id              SERIAL       PRIMARY KEY,                    -- Mã địa điểm (tự tăng)
+    name            VARCHAR(200) NOT NULL,                       -- Tên điểm (VD: Bến xe Mỹ Đình, Sân bay Nội Bài)
+    location_type   VARCHAR(20)  NOT NULL
+                        CHECK (location_type IN ('bus_station','airport','train_station')), -- Loại: bến xe / sân bay / ga tàu
+    province_id     INT          NOT NULL REFERENCES provinces(id),                         -- Tỉnh / thành phố
+    address         TEXT,                                        -- Địa chỉ cụ thể
+    latitude        NUMERIC(10,7),                               -- Vĩ độ GPS
+    longitude       NUMERIC(10,7),                               -- Kinh độ GPS
+    iata_code       VARCHAR(5)                                   -- Mã IATA (SGN, HAN, DAD... dành cho sân bay & ga tàu)
 );
+COMMENT ON TABLE locations IS 'Điểm xuất phát / điểm đến: bến xe, sân bay, ga tàu';
 
----NHÓM QUẢN LÝ GIÁ VÉ & ĐẶT CHỖ
--- 7. Bảng Giá vé (Tính toán theo chặng và loại toa)
-CREATE TABLE Ticket_Prices (
-    price_id SERIAL PRIMARY KEY,
-    schedule_id INT REFERENCES Schedules(schedule_id),
-    from_station_id INT REFERENCES Stations(station_id), -- Ga bắt đầu chặng
-    to_station_id INT REFERENCES Stations(station_id),   -- Ga kết thúc chặng
-    carriage_type_code VARCHAR(20),      -- Loại toa áp dụng mức giá này
-    price DECIMAL(12, 2) NOT NULL        -- Số tiền (VNĐ)
+
+-- ============================================================
+-- PHẦN 3: XE KHÁCH
+-- ============================================================
+
+CREATE TABLE bus_companies (
+    id              SERIAL       PRIMARY KEY,                    -- Mã nhà xe (tự tăng)
+    partner_id      INT          NOT NULL REFERENCES partners(id) ON DELETE CASCADE,        -- Đối tác sở hữu
+    name            VARCHAR(200) NOT NULL,                       -- Tên nhà xe (VD: Phương Trang, Thành Bưởi)
+    description     TEXT,                                        -- Mô tả dịch vụ
+    image_url       TEXT,                                        -- Ảnh đại diện nhà xe
+    avg_rating      NUMERIC(3,2) DEFAULT 0,                      -- Điểm đánh giá trung bình (0–5)
+    total_reviews   INT          DEFAULT 0                       -- Tổng số lượt đánh giá
 );
+COMMENT ON TABLE bus_companies IS 'Nhà xe vận tải khách (thuộc đối tác)';
 
--- 8. Bảng Khách hàng
-CREATE TABLE Customers (
-    customer_id SERIAL PRIMARY KEY,
-    full_name VARCHAR(100) NOT NULL,      -- Họ tên người mua/đi
-    id_card VARCHAR(20) UNIQUE,           -- Số CCCD/Hộ chiếu (Bắt buộc theo dsvn.vn)
-    phone VARCHAR(15),                    -- Số điện thoại liên lạc
-    email VARCHAR(100)                    -- Email nhận vé điện tử
+
+CREATE TABLE vehicle_types (
+    id              SERIAL       PRIMARY KEY,                    -- Mã loại xe (tự tăng)
+    name            VARCHAR(100) NOT NULL,                       -- Tên loại xe (VD: Limousine 9 chỗ, Giường nằm 40 chỗ)
+    seat_type       VARCHAR(30)  NOT NULL
+                        CHECK (seat_type IN ('seat','sleeper','cabin','limousine')),         -- Kiểu chỗ: ghế ngồi / giường nằm / cabin / limousine
+    total_seats     INT          NOT NULL,                       -- Tổng số chỗ
+    floors          INT          DEFAULT 1,                      -- Số tầng xe (1 hoặc 2)
+    amenities       TEXT                                         -- Tiện nghi: wifi, điều hoà, TV, USB...
 );
+COMMENT ON TABLE vehicle_types IS 'Phân loại xe: limousine, giường nằm, ghế ngồi thường, cabin';
 
--- 9. Bảng Vé/Đặt chỗ
-CREATE TABLE Bookings (
-    booking_id SERIAL PRIMARY KEY,
-    customer_id INT REFERENCES Customers(customer_id), -- Ai đặt
-    schedule_id INT REFERENCES Schedules(schedule_id), -- Chuyến tàu nào
-    seat_id INT REFERENCES Seats(seat_id),             -- Ghế cụ thể nào
-    from_station_id INT REFERENCES Stations(station_id), -- Đi từ ga nào
-    to_station_id INT REFERENCES Stations(station_id),   -- Đến ga nào
-    booking_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,    -- Thời điểm đặt vé
-    status VARCHAR(20),                  -- Trạng thái: 'Đã thanh toán', 'Đang giữ chỗ', 'Đã hủy'
-    total_amount DECIMAL(12, 2)          -- Tổng tiền cuối cùng
+
+CREATE TABLE vehicles (
+    id              SERIAL       PRIMARY KEY,                    -- Mã xe (tự tăng)
+    bus_company_id  INT          NOT NULL REFERENCES bus_companies(id) ON DELETE CASCADE,   -- Nhà xe sở hữu
+    vehicle_type_id INT          NOT NULL REFERENCES vehicle_types(id),                     -- Loại xe
+    license_plate   VARCHAR(20)  UNIQUE NOT NULL,                -- Biển số xe
+    manufacture_year INT,                                        -- Năm sản xuất
+    status          VARCHAR(20)  DEFAULT 'active'
+                        CHECK (status IN ('active','maintenance','inactive'))                -- Trạng thái: hoạt động / bảo dưỡng / ngừng
 );
+COMMENT ON TABLE vehicles IS 'Xe cụ thể (theo biển số) của nhà xe';
 
----NHÓM QUẢN LÝ TUYẾN VÀ CHUYẾN
--- 1. Bảng Tuyến đường
-CREATE TABLE Routes (
-    route_id SERIAL PRIMARY KEY,
-    route_name VARCHAR(255) NOT NULL,    -- Tên tuyến (VD: Tuyến Bắc Nam)
-    description TEXT
+
+CREATE TABLE bus_routes (
+    id              SERIAL        PRIMARY KEY,                   -- Mã tuyến xe (tự tăng)
+    bus_company_id  INT           NOT NULL REFERENCES bus_companies(id) ON DELETE CASCADE,  -- Nhà xe khai thác
+    origin_id       INT           NOT NULL REFERENCES locations(id),                        -- Điểm xuất phát
+    destination_id  INT           NOT NULL REFERENCES locations(id),                        -- Điểm đến
+    distance_km     INT,                                         -- Khoảng cách ước tính (km)
+    base_price      NUMERIC(12,0) NOT NULL,                      -- Giá vé cơ bản (VNĐ)
+    status          VARCHAR(20)   DEFAULT 'active'               -- Trạng thái tuyến
 );
+COMMENT ON TABLE bus_routes IS 'Tuyến đường xe khách (từ điểm A đến điểm B)';
 
--- 2. Bảng Phân đoạn Tuyến (Quản lý thứ tự ga)
-CREATE TABLE Route_Segments (
-    segment_id SERIAL PRIMARY KEY,
-    route_id INT REFERENCES Routes(route_id),
-    station_id INT REFERENCES Stations(station_id),
-    stop_order INT NOT NULL,             -- Thứ tự dừng (1, 2, 3...)
-    distance_from_start INT,             -- Khoảng cách từ ga gốc (km)
-    travel_time_offset INT,              -- Thời gian chạy từ ga gốc (phút)
-    UNIQUE(route_id, stop_order)         -- Đảm bảo một tuyến không có 2 ga trùng thứ tự
+
+CREATE TABLE bus_trips (
+    id              SERIAL        PRIMARY KEY,                   -- Mã chuyến xe (tự tăng)
+    route_id        INT           NOT NULL REFERENCES bus_routes(id),                       -- Tuyến xe
+    vehicle_id      INT           REFERENCES vehicles(id),                                  -- Xe thực hiện chuyến
+    departure_time  TIMESTAMPTZ   NOT NULL,                      -- Thời gian khởi hành
+    arrival_time    TIMESTAMPTZ   NOT NULL,                      -- Thời gian dự kiến đến nơi
+    available_seats INT           NOT NULL,                      -- Số chỗ còn trống
+    ticket_price    NUMERIC(12,0) NOT NULL,                      -- Giá vé chuyến này
+    status          VARCHAR(20)   DEFAULT 'open'
+                        CHECK (status IN ('open','full','cancelled','completed'))            -- Trạng thái: mở bán / hết chỗ / huỷ / hoàn thành
 );
+COMMENT ON TABLE bus_trips IS 'Chuyến xe cụ thể: ngày giờ, xe, số chỗ trống, giá vé';
 
--- 3. Cập nhật bảng Schedules (Lịch trình)
--- Thay vì lưu ga đi/đến, ta chỉ cần liên kết với một Route cụ thể
-ALTER TABLE Schedules ADD COLUMN route_id INT REFERENCES Routes(route_id);
+
+CREATE TABLE bus_seats (
+    id              SERIAL        PRIMARY KEY,                   -- Mã ghế (tự tăng)
+    trip_id         INT           NOT NULL REFERENCES bus_trips(id) ON DELETE CASCADE,      -- Chuyến xe
+    seat_code       VARCHAR(10)   NOT NULL,                      -- Mã ghế / giường (A1, B2,...)
+    floor           VARCHAR(10)   CHECK (floor IN ('upper','lower')),                       -- Tầng: trên / dưới (xe 2 tầng)
+    row_label       VARCHAR(5),                                  -- Hàng ghế (A, B, C,...)
+    status          VARCHAR(20)   DEFAULT 'available'
+                        CHECK (status IN ('available','booked','unavailable')),             -- Trạng thái: còn trống / đã đặt / không dùng
+    extra_price     NUMERIC(12,0) DEFAULT 0,                     -- Phụ thu thêm (ghế VIP, tầng dưới,...)
+    UNIQUE (trip_id, seat_code)
+);
+COMMENT ON TABLE bus_seats IS 'Từng ghế / giường trong chuyến xe, kèm trạng thái đặt';
+
+
+CREATE TABLE bus_pickup_points (
+    id              SERIAL       PRIMARY KEY,                    -- Mã điểm dừng (tự tăng)
+    route_id        INT          NOT NULL REFERENCES bus_routes(id) ON DELETE CASCADE,      -- Tuyến xe
+    point_name      VARCHAR(200) NOT NULL,                       -- Tên điểm đón / trả
+    point_type      VARCHAR(10)  CHECK (point_type IN ('pickup','dropoff','both')),         -- Loại: đón / trả / cả hai
+    address         TEXT,                                        -- Địa chỉ điểm dừng
+    stop_order      INT,                                         -- Thứ tự điểm dừng trên tuyến
+    estimated_time  TIME                                         -- Giờ dự kiến qua điểm này
+);
+COMMENT ON TABLE bus_pickup_points IS 'Điểm đón / trả khách dọc theo tuyến xe';
+
+
+-- ============================================================
+-- PHẦN 4: MÁY BAY
+-- ============================================================
+
+CREATE TABLE airlines (
+    id              SERIAL       PRIMARY KEY,                    -- Mã hãng bay (tự tăng)
+    partner_id      INT          REFERENCES partners(id),        -- Đối tác liên kết
+    name            VARCHAR(150) NOT NULL,                       -- Tên hãng (VD: Vietnam Airlines, Vietjet Air)
+    iata_code       VARCHAR(5)   UNIQUE,                         -- Mã IATA của hãng (VN, VJ, QH,...)
+    logo_url        TEXT,                                        -- URL logo hãng bay
+    nationality     VARCHAR(50)  DEFAULT 'Vietnam'               -- Quốc tịch hãng bay
+);
+COMMENT ON TABLE airlines IS 'Hãng hàng không (đối tác)';
+
+
+CREATE TABLE cabin_classes (
+    id              SERIAL       PRIMARY KEY,                    -- Mã hạng ghế (tự tăng)
+    name            VARCHAR(50)  NOT NULL,                       -- Tên hạng ghế (hiển thị)
+    class_code      VARCHAR(30)  NOT NULL
+                        CHECK (class_code IN (
+                            'economy',           -- Phổ thông
+                            'premium_economy',   -- Phổ thông đặc biệt
+                            'business',          -- Thương gia
+                            'first_class'        -- Hạng nhất
+                        )),                                      -- Mã hạng ghế tiêu chuẩn
+    description     TEXT,                                        -- Mô tả tiện ích đi kèm
+    baggage_kg      INT DEFAULT 7                                -- Hành lý xách tay tối đa (kg)
+);
+COMMENT ON TABLE cabin_classes IS 'Hạng ghế máy bay: phổ thông, phổ thông đặc biệt, thương gia, hạng nhất';
+
+
+CREATE TABLE flights (
+    id              SERIAL        PRIMARY KEY,                   -- Mã chuyến bay (tự tăng)
+    airline_id      INT           NOT NULL REFERENCES airlines(id),                         -- Hãng bay
+    flight_number   VARCHAR(20)   NOT NULL,                      -- Số hiệu chuyến bay (VD: VN123)
+    origin_id       INT           NOT NULL REFERENCES locations(id),                        -- Sân bay xuất phát
+    destination_id  INT           NOT NULL REFERENCES locations(id),                        -- Sân bay đến
+    departure_time  TIMESTAMPTZ   NOT NULL,                      -- Giờ cất cánh
+    arrival_time    TIMESTAMPTZ   NOT NULL,                      -- Giờ hạ cánh dự kiến
+    aircraft_type   VARCHAR(50),                                 -- Loại máy bay (Boeing 787, Airbus A321,...)
+    status          VARCHAR(20)   DEFAULT 'on_time'
+                        CHECK (status IN ('on_time','delayed','cancelled','completed'))     -- Trạng thái: đúng giờ / trễ / huỷ / hoàn thành
+);
+COMMENT ON TABLE flights IS 'Thông tin chuyến bay: số hiệu, tuyến bay, giờ bay';
+
+
+CREATE TABLE flight_seats (
+    id              SERIAL        PRIMARY KEY,                   -- Mã ghế (tự tăng)
+    flight_id       INT           NOT NULL REFERENCES flights(id) ON DELETE CASCADE,        -- Chuyến bay
+    cabin_class_id  INT           NOT NULL REFERENCES cabin_classes(id),                    -- Hạng ghế
+    seat_number     VARCHAR(10)   NOT NULL,                      -- Số ghế (VD: 12A, 14C)
+    seat_position   VARCHAR(15)   CHECK (seat_position IN ('window','middle','aisle')),     -- Vị trí: cửa sổ / giữa / lối đi
+    ticket_price    NUMERIC(12,0) NOT NULL,                      -- Giá vé ghế này
+    status          VARCHAR(20)   DEFAULT 'available'
+                        CHECK (status IN ('available','booked','unavailable')),             -- Trạng thái: còn trống / đã đặt / không dùng
+    UNIQUE (flight_id, seat_number)
+);
+COMMENT ON TABLE flight_seats IS 'Ghế cụ thể trong chuyến bay: số ghế, hạng, vị trí, trạng thái';
+
+
+-- ============================================================
+-- PHẦN 5: TÀU HỎA
+-- ============================================================
+
+CREATE TABLE trains (
+    id              SERIAL       PRIMARY KEY,                    -- Mã tàu (tự tăng)
+    partner_id      INT          REFERENCES partners(id),        -- Đối tác (đường sắt VN)
+    train_code      VARCHAR(20)  UNIQUE NOT NULL,                -- Mã tàu (SE1, SE2, TN1,...)
+    train_name      VARCHAR(100),                                -- Tên tàu đầy đủ
+    train_type      VARCHAR(20)  CHECK (train_type IN ('express','regular','tourist'))      -- Loại tàu: nhanh / thường / du lịch
+);
+COMMENT ON TABLE trains IS 'Đầu máy / tàu hỏa: SE1, SE2, TN1,...';
+
+
+CREATE TABLE train_carriages (
+    id              SERIAL       PRIMARY KEY,                    -- Mã toa tàu (tự tăng)
+    train_id        INT          NOT NULL REFERENCES trains(id) ON DELETE CASCADE,          -- Tàu sở hữu toa
+    carriage_number INT          NOT NULL,                       -- Số thứ tự toa (1, 2, 3,...)
+    carriage_type   VARCHAR(30)  NOT NULL
+                        CHECK (carriage_type IN (
+                            'hard_seat',        -- Ghế ngồi cứng
+                            'soft_seat',        -- Ghế ngồi mềm (có đệm)
+                            'hard_sleeper',     -- Giường nằm cứng (6 berth)
+                            'soft_sleeper',     -- Giường nằm mềm (4 berth)
+                            'vip_ac_sleeper'    -- Giường VIP điều hoà
+                        )),                                      -- Loại toa
+    seats_per_compartment INT,                                   -- Số chỗ mỗi khoang (4 hoặc 6)
+    UNIQUE (train_id, carriage_number)
+);
+COMMENT ON TABLE train_carriages IS 'Toa tàu: loại toa, số thứ tự trong đoàn tàu';
+
+
+CREATE TABLE train_trips (
+    id              SERIAL        PRIMARY KEY,                   -- Mã chuyến tàu (tự tăng)
+    train_id        INT           NOT NULL REFERENCES trains(id),                           -- Tàu thực hiện
+    origin_id       INT           NOT NULL REFERENCES locations(id),                        -- Ga xuất phát
+    destination_id  INT           NOT NULL REFERENCES locations(id),                        -- Ga đến
+    departure_time  TIMESTAMPTZ   NOT NULL,                      -- Giờ tàu rời ga đầu
+    arrival_time    TIMESTAMPTZ   NOT NULL,                      -- Giờ tàu đến ga cuối
+    status          VARCHAR(20)   DEFAULT 'open'
+                        CHECK (status IN ('open','full','cancelled','completed'))            -- Trạng thái: mở bán / hết chỗ / huỷ / hoàn thành
+);
+COMMENT ON TABLE train_trips IS 'Chuyến tàu cụ thể: tuyến, ngày giờ, trạng thái';
+
+
+CREATE TABLE train_seats (
+    id              SERIAL        PRIMARY KEY,                   -- Mã ghế / giường (tự tăng)
+    trip_id         INT           NOT NULL REFERENCES train_trips(id) ON DELETE CASCADE,    -- Chuyến tàu
+    carriage_id     INT           NOT NULL REFERENCES train_carriages(id),                  -- Toa tàu
+    seat_number     VARCHAR(10)   NOT NULL,                      -- Số ghế / số giường (01, 02,...)
+    berth_position  VARCHAR(15)   CHECK (berth_position IN ('seat','upper','middle','lower')), -- Vị trí: ngồi / nằm tầng trên-giữa-dưới
+    ticket_price    NUMERIC(12,0) NOT NULL,                      -- Giá vé
+    status          VARCHAR(20)   DEFAULT 'available'
+                        CHECK (status IN ('available','booked','unavailable')),             -- Trạng thái: còn trống / đã đặt / không dùng
+    UNIQUE (trip_id, carriage_id, seat_number)
+);
+COMMENT ON TABLE train_seats IS 'Ghế / giường cụ thể trong toa tàu: số, loại, giá, trạng thái';
+
+
+-- ============================================================
+-- PHẦN 6: ĐẶT VÉ & THANH TOÁN
+-- ============================================================
+
+CREATE TABLE orders (
+    id              SERIAL        PRIMARY KEY,                   -- Mã đơn hàng (tự tăng)
+    order_code      VARCHAR(20)   UNIQUE NOT NULL,               -- Mã đơn hiển thị cho khách (VD: VXR2604001)
+    customer_id     INT           NOT NULL REFERENCES users(id), -- Khách hàng đặt vé
+    ticket_type     VARCHAR(15)   NOT NULL
+                        CHECK (ticket_type IN ('bus','flight','train')),                    -- Loại vé: xe khách / máy bay / tàu hỏa
+    subtotal        NUMERIC(14,0) NOT NULL,                      -- Tổng tiền trước phí & giảm giá (VNĐ)
+    service_fee     NUMERIC(12,0) DEFAULT 0,                     -- Phí dịch vụ Vexere
+    discount        NUMERIC(12,0) DEFAULT 0,                     -- Số tiền giảm (voucher / khuyến mãi)
+    total_amount    NUMERIC(14,0) NOT NULL,                      -- Thực thu = subtotal + service_fee - discount
+    status          VARCHAR(25)   DEFAULT 'pending_payment'
+                        CHECK (status IN (
+                            'pending_payment',  -- Chờ thanh toán
+                            'paid',             -- Đã thanh toán
+                            'cancelled',        -- Đã huỷ
+                            'refunding',        -- Đang hoàn tiền
+                            'completed'         -- Chuyến đi hoàn tất
+                        )),                                      -- Trạng thái đơn hàng
+    note            TEXT,                                        -- Ghi chú của khách
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),        -- Thời điểm tạo đơn
+    updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()         -- Thời điểm cập nhật gần nhất
+);
+COMMENT ON TABLE orders IS 'Đơn đặt vé của khách hàng (chứa nhiều vé thành phần)';
+
+
+CREATE TABLE order_items (
+    id                  SERIAL        PRIMARY KEY,               -- Mã chi tiết vé (tự tăng)
+    order_id            INT           NOT NULL REFERENCES orders(id) ON DELETE CASCADE,     -- Đơn hàng
+    bus_seat_id         INT           REFERENCES bus_seats(id),  -- Ghế xe khách (nếu là vé xe)
+    flight_seat_id      INT           REFERENCES flight_seats(id), -- Ghế máy bay (nếu là vé máy bay)
+    train_seat_id       INT           REFERENCES train_seats(id), -- Ghế tàu (nếu là vé tàu)
+    passenger_name      VARCHAR(100)  NOT NULL,                  -- Họ tên hành khách
+    id_number           VARCHAR(20),                             -- Số CMND / CCCD / Hộ chiếu
+    phone_number        VARCHAR(15),                             -- Số điện thoại hành khách
+    date_of_birth       DATE,                                    -- Ngày sinh hành khách
+    ticket_price        NUMERIC(12,0) NOT NULL,                  -- Giá vé của chỗ này
+    status              VARCHAR(20)   DEFAULT 'confirmed'
+                            CHECK (status IN ('confirmed','cancelled','used'))              -- Trạng thái: đã xác nhận / huỷ / đã sử dụng
+);
+COMMENT ON TABLE order_items IS 'Chi tiết từng vé trong đơn: 1 hành khách – 1 ghế/giường';
+
+
+CREATE TABLE payments (
+    id                  SERIAL        PRIMARY KEY,               -- Mã giao dịch (tự tăng)
+    order_id            INT           NOT NULL REFERENCES orders(id),                       -- Đơn hàng thanh toán
+    payment_method      VARCHAR(30)   NOT NULL
+                            CHECK (payment_method IN (
+                                'credit_card','debit_card',
+                                'momo','zalopay','shopee_pay',
+                                'bank_transfer','cash','vexere_wallet'
+                            )),                                  -- Phương thức: thẻ tín dụng / ghi nợ / ví điện tử / chuyển khoản / tiền mặt
+    amount              NUMERIC(14,0) NOT NULL,                  -- Số tiền thanh toán (VNĐ)
+    status              VARCHAR(20)   DEFAULT 'pending'
+                            CHECK (status IN ('pending','success','failed','refunded')),    -- Trạng thái: chờ / thành công / thất bại / đã hoàn
+    transaction_code    VARCHAR(100),                            -- Mã giao dịch từ cổng thanh toán (MoMo, ZaloPay,...)
+    paid_at             TIMESTAMPTZ,                             -- Thời điểm thanh toán thành công
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()     -- Thời điểm tạo bản ghi
+);
+COMMENT ON TABLE payments IS 'Lịch sử giao dịch thanh toán đơn vé';
+
+
+-- ============================================================
+-- PHẦN 7: VOUCHER & KHUYẾN MÃI
+-- ============================================================
+
+CREATE TABLE promotions (
+    id              SERIAL        PRIMARY KEY,                   -- Mã khuyến mãi (tự tăng)
+    voucher_code    VARCHAR(30)   UNIQUE NOT NULL,               -- Mã voucher (VD: FLASH50, MOMO20K)
+    name            VARCHAR(150)  NOT NULL,                      -- Tên chương trình khuyến mãi
+    discount_type   VARCHAR(20)   NOT NULL
+                        CHECK (discount_type IN ('percentage','fixed_amount')),             -- Kiểu giảm: phần trăm / số tiền cố định
+    discount_value  NUMERIC(12,0) NOT NULL,                      -- Giá trị giảm (% hoặc VNĐ)
+    max_discount    NUMERIC(12,0),                               -- Mức giảm tối đa (áp dụng cho loại %)
+    min_order_value NUMERIC(12,0) DEFAULT 0,                     -- Giá trị đơn tối thiểu để áp dụng
+    usage_limit     INT,                                         -- Tổng số lượt dùng tối đa
+    used_count      INT           DEFAULT 0,                     -- Số lượt đã dùng
+    start_date      TIMESTAMPTZ   NOT NULL,                      -- Thời hạn bắt đầu
+    end_date        TIMESTAMPTZ   NOT NULL,                      -- Thời hạn kết thúc
+    applicable_for  VARCHAR(20)   CHECK (applicable_for IN ('bus','flight','train','all')), -- Áp dụng cho loại vé nào
+    status          VARCHAR(20)   DEFAULT 'active'               -- Trạng thái voucher
+);
+COMMENT ON TABLE promotions IS 'Voucher và chương trình giảm giá';
+
+
+CREATE TABLE voucher_usages (
+    id              SERIAL        PRIMARY KEY,                   -- Mã lượt sử dụng (tự tăng)
+    promotion_id    INT           NOT NULL REFERENCES promotions(id),                       -- Voucher áp dụng
+    order_id        INT           NOT NULL REFERENCES orders(id),                           -- Đơn hàng được áp dụng
+    customer_id     INT           NOT NULL REFERENCES users(id),                            -- Khách hàng dùng
+    discount_amount NUMERIC(12,0) NOT NULL,                      -- Số tiền thực tế được giảm (VNĐ)
+    used_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),        -- Thời điểm áp dụng voucher
+    UNIQUE (promotion_id, order_id)
+);
+COMMENT ON TABLE voucher_usages IS 'Theo dõi voucher đã được áp dụng vào đơn hàng nào';
+
+
+-- ============================================================
+-- PHẦN 8: ĐÁNH GIÁ & THÔNG BÁO
+-- ============================================================
+
+CREATE TABLE reviews (
+    id              SERIAL       PRIMARY KEY,                    -- Mã đánh giá (tự tăng)
+    order_id        INT          NOT NULL REFERENCES orders(id), -- Đơn hàng được đánh giá
+    customer_id     INT          NOT NULL REFERENCES users(id),  -- Khách hàng đánh giá
+    partner_type    VARCHAR(15)  CHECK (partner_type IN ('bus_company','airline','railway')), -- Loại đối tác
+    partner_id      INT,                                         -- ID nhà xe / hãng bay / đường sắt
+    rating          INT          CHECK (rating BETWEEN 1 AND 5), -- Số sao đánh giá (1–5)
+    comment         TEXT,                                        -- Nội dung nhận xét
+    partner_reply   TEXT,                                        -- Phản hồi của nhà xe / hãng bay
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()          -- Thời điểm đánh giá
+);
+COMMENT ON TABLE reviews IS 'Đánh giá sao và nhận xét của khách sau chuyến đi';
+
+
+CREATE TABLE notifications (
+    id              SERIAL       PRIMARY KEY,                    -- Mã thông báo (tự tăng)
+    user_id         INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,           -- Người nhận thông báo
+    title           VARCHAR(255) NOT NULL,                       -- Tiêu đề thông báo
+    body            TEXT,                                        -- Nội dung chi tiết
+    noti_type       VARCHAR(20)  CHECK (noti_type IN ('booking','cancellation','promotion','system')), -- Loại: đặt vé / huỷ vé / khuyến mãi / hệ thống
+    is_read         BOOLEAN      DEFAULT FALSE,                  -- Đã đọc chưa
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()          -- Thời điểm gửi thông báo
+);
+COMMENT ON TABLE notifications IS 'Thông báo đến người dùng: đặt vé, huỷ vé, khuyến mãi, hệ thống';
+
+
+-- ============================================================
+-- PHẦN 9: BẢO HIỂM
+-- ============================================================
+
+CREATE TABLE insurance_plans (
+    id              SERIAL        PRIMARY KEY,                   -- Mã gói bảo hiểm (tự tăng)
+    name            VARCHAR(100)  NOT NULL,                      -- Tên gói bảo hiểm
+    description     TEXT,                                        -- Mô tả quyền lợi bảo hiểm
+    premium         NUMERIC(10,0) NOT NULL,                      -- Phí bảo hiểm mỗi vé (VNĐ)
+    max_coverage    NUMERIC(14,0),                               -- Mức bồi thường tối đa (VNĐ)
+    applicable_for  VARCHAR(20)   CHECK (applicable_for IN ('bus','flight','train','all'))  -- Áp dụng cho loại vé nào
+);
+COMMENT ON TABLE insurance_plans IS 'Gói bảo hiểm chuyến đi: tai nạn, trễ/huỷ chuyến,...';
+
+
+CREATE TABLE insurance_purchases (
+    id              SERIAL        PRIMARY KEY,                   -- Mã lượt mua bảo hiểm (tự tăng)
+    order_item_id   INT           NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,    -- Vé được mua bảo hiểm
+    plan_id         INT           NOT NULL REFERENCES insurance_plans(id),                  -- Gói bảo hiểm
+    premium_paid    NUMERIC(10,0),                               -- Phí bảo hiểm đã thu (VNĐ)
+    purchased_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()         -- Thời điểm mua
+);
+COMMENT ON TABLE insurance_purchases IS 'Bảo hiểm mua kèm theo từng vé cụ thể';
+
+
+-- ============================================================
+-- INDEX TĂNG HIỆU SUẤT TÌM KIẾM
+-- ============================================================
+
+CREATE INDEX idx_users_email              ON users(email);
+CREATE INDEX idx_users_account_type       ON users(account_type);
+CREATE INDEX idx_bus_trips_departure      ON bus_trips(departure_time);
+CREATE INDEX idx_bus_trips_status         ON bus_trips(status);
+CREATE INDEX idx_bus_seats_status         ON bus_seats(status);
+CREATE INDEX idx_flights_departure        ON flights(departure_time);
+CREATE INDEX idx_flights_status           ON flights(status);
+CREATE INDEX idx_flight_seats_status      ON flight_seats(status);
+CREATE INDEX idx_train_trips_departure    ON train_trips(departure_time);
+CREATE INDEX idx_train_trips_status       ON train_trips(status);
+CREATE INDEX idx_train_seats_status       ON train_seats(status);
+CREATE INDEX idx_orders_customer          ON orders(customer_id);
+CREATE INDEX idx_orders_status            ON orders(status);
+CREATE INDEX idx_orders_ticket_type       ON orders(ticket_type);
+
+-- ============================================================
+-- END OF SCHEMA
+-- ============================================================
+
+-- ============================================================
+--  SEED DATA — Dữ liệu thực tế Việt Nam
+--  Địa giới hành chính: 34 tỉnh thành SAU SÁP NHẬP (hiệu lực 12/6/2025)
+--  Ga tàu: Tuyến Lào Cai → Hà Nội → TP.HCM (đầy đủ)
+--  Bảng động (users, orders, ...): 10 bản ghi
+-- ============================================================
+
+BEGIN;
+
+-- ============================================================
+-- PHẦN 1: NGƯỜI DÙNG (14 bản ghi, gồm cả đối tác)
+-- ============================================================
+
+INSERT INTO users (id, full_name, email, password, phone_number, date_of_birth, gender, account_type, status) VALUES
+  ( 1, 'Nguyễn Văn An',    'an.nguyen@gmail.com',          'An@123456',    '0901234501', '1995-03-15', 'male',   'customer', 'active'),
+  ( 2, 'Trần Thị Bình',    'binh.tran@gmail.com',          'Binh@123456',  '0901234502', '1998-07-22', 'female', 'customer', 'active'),
+  ( 3, 'Lê Minh Châu',     'chau.le@gmail.com',            'Chau@123456',  '0901234503', '1990-11-05', 'male',   'customer', 'active'),
+  ( 4, 'Phạm Thị Dung',    'dung.pham@gmail.com',          'Dung@123456',  '0901234504', '2000-05-18', 'female', 'customer', 'active'),
+  ( 5, 'Hoàng Văn Em',     'em.hoang@gmail.com',           'Em@123456',    '0901234505', '1993-09-30', 'male',   'customer', 'active'),
+  ( 6, 'Vũ Thị Phương',    'phuong.vu@gmail.com',          'Phuong@123456','0901234506', '1997-02-14', 'female', 'customer', 'active'),
+  ( 7, 'Đỗ Quốc Hùng',     'hung.do@gmail.com',            'Hung@123456',  '0901234507', '1988-12-01', 'male',   'customer', 'active'),
+  ( 8, 'Ngô Thị Kim',      'kim.ngo@gmail.com',            'Kim@123456',   '0901234508', '2001-08-25', 'female', 'customer', 'active'),
+  ( 9, 'Trịnh Hoàng Long', 'long.trinh@gmail.com',         'Long@123456',  '0901234509', '1985-03-10', 'male',   'customer', 'active'),
+  (10, 'Bùi Thị Mai',      'mai.bui@gmail.com',            'Mai@123456',   '0901234510', '1996-11-30', 'female', 'customer', 'active'),
+  (11, 'Cao Minh Nam',     'nam.cao@phuongtrang.vn',       'Nam@123456',   '0901234511', '1982-04-20', 'male',   'partner',  'active'),
+  (12, 'Đinh Thị Oanh',    'oanh.dinh@vietnamairlines.vn', 'Oanh@123456',  '0901234512', '1979-08-15', 'female', 'partner',  'active'),
+  (13, 'Lý Văn Phong',     'phong.ly@dsvn.vn',             'Phong@123456', '0901234513', '1977-01-05', 'male',   'partner',  'active'),
+  (14, 'Mai Thị Quỳnh',    'quynh.mai@vexere-admin.vn',    'Admin@123456', '0901234514', '1985-06-20', 'female', 'admin',    'active');
+
+SELECT setval('users_id_seq', 14);
+
+
+INSERT INTO partners (id, user_id, company_name, tax_code, address, website, partner_type, contract_date, commission_rate) VALUES
+  (1, 11, 'Công ty TNHH Phương Trang (FUTA)',    '0300686810', '233 Điện Biên Phủ, TP. Hồ Chí Minh',   'https://futabus.vn',          'bus_company', '2020-01-10', 10.00),
+  (2, 12, 'Vietnam Airlines',                    '0100107518', '200 Nguyễn Sơn, Hà Nội',               'https://vietnamairlines.com', 'airline',     '2019-06-01',  8.00),
+  (3, 13, 'Tổng Công ty Đường sắt Việt Nam',    '0100100982', '118 Lê Duẩn, Hà Nội',                  'https://dsvn.vn',             'railway',     '2021-03-15',  7.50),
+  (4, 11, 'Nhà xe Thành Bưởi',                  '0301234567', '265 Lê Hồng Phong, TP. Hồ Chí Minh',   'https://thanhbuoi.com',       'bus_company', '2020-08-20',  9.00),
+  (5, 12, 'Vietjet Air',                         '0101039026', '302/3 Kim Mã, Hà Nội',                  'https://vietjetair.com',      'airline',     '2020-11-05',  8.50),
+  (6, 11, 'Hoàng Long – Hoa Mai',               '0300555888', '65 Lý Thường Kiệt, Hà Nội',             'https://hoanglongbus.vn',     'bus_company', '2021-06-01',  9.50),
+  (7, 12, 'Bamboo Airways',                     '0108269039', 'Đại lộ Võ Nguyên Giáp, Quy Nhơn, Gia Lai','https://bambooairways.com', 'airline',     '2022-01-15',  8.00),
+  (8, 11, 'Kumho Samco Bus',                    '0302012345', '39 Trần Hưng Đạo, TP. Hồ Chí Minh',    'https://kumhobus.vn',         'bus_company', '2021-09-10',  9.00),
+  (9, 12, 'Pacific Airlines',                   '0100234567', '15 Quang Trung, TP. Hồ Chí Minh',       'https://pacificairlines.vn',  'airline',     '2022-03-20',  8.50),
+  (10,13, 'Hà Sơn – Hải Vân Express',           '0100567890', '26 Trần Nhật Duật, Hà Nội',             'https://hasoni.vn',           'bus_company', '2022-07-01',  9.00);
+
+SELECT setval('partners_id_seq', 10);
+
+
+-- ============================================================
+-- PHẦN 2: TỈNH THÀNH — 34 ĐƠN VỊ HÀNH CHÍNH MỚI (hiệu lực 12/6/2025)
+-- ============================================================
+-- Nguồn: Nghị quyết 202/2025/QH15 ngày 12/6/2025
+-- Tên gọi chính thức sau sáp nhập
+
+INSERT INTO provinces (id, name, region_code, country) VALUES
+-- Miền Bắc (14 tỉnh/thành)
+  ( 1, 'Hà Nội',         'HN',   'Vietnam'),  -- Giữ nguyên
+  ( 2, 'Lào Cai',        'LCI',  'Vietnam'),  -- Hợp nhất: Lào Cai + Yên Bái
+  ( 3, 'Tuyên Quang',    'TQ',   'Vietnam'),  -- Hợp nhất: Tuyên Quang + Hà Giang
+  ( 4, 'Phú Thọ',        'PT',   'Vietnam'),  -- Hợp nhất: Phú Thọ + Vĩnh Phúc + Hòa Bình
+  ( 5, 'Thái Nguyên',    'TNg',  'Vietnam'),  -- Hợp nhất: Thái Nguyên + Bắc Kạn
+  ( 6, 'Lạng Sơn',       'LS',   'Vietnam'),  -- Giữ nguyên
+  ( 7, 'Quảng Ninh',     'QN',   'Vietnam'),  -- Giữ nguyên
+  ( 8, 'Bắc Ninh',       'BN',   'Vietnam'),  -- Hợp nhất: Bắc Ninh + Bắc Giang
+  ( 9, 'Hưng Yên',       'HY',   'Vietnam'),  -- Hợp nhất: Hưng Yên + Thái Bình
+  (10, 'Hải Phòng',      'HP',   'Vietnam'),  -- Giữ nguyên (TP trực thuộc TW)
+  (11, 'Hà Nam',         'HNa',  'Vietnam'),  -- Hợp nhất: Hà Nam + Ninh Bình + Nam Định
+  (12, 'Thanh Hóa',      'TH',   'Vietnam'),  -- Giữ nguyên
+  (13, 'Sơn La',         'SLa',  'Vietnam'),  -- Giữ nguyên
+  (14, 'Cao Bằng',       'CB',   'Vietnam'),  -- Giữ nguyên (có Lai Châu + Điện Biên)
+-- Miền Trung (10 tỉnh/thành)
+  (15, 'Nghệ An',        'NA',   'Vietnam'),  -- Giữ nguyên
+  (16, 'Hà Tĩnh',        'HT',   'Vietnam'),  -- Giữ nguyên
+  (17, 'Quảng Trị',      'QTr',  'Vietnam'),  -- Hợp nhất: Quảng Bình + Quảng Trị
+  (18, 'Huế',            'HUE',  'Vietnam'),  -- Giữ nguyên (TP trực thuộc TW)
+  (19, 'Đà Nẵng',        'DN',   'Vietnam'),  -- Hợp nhất: Đà Nẵng + Quảng Nam (TP trực thuộc TW)
+  (20, 'Quảng Ngãi',     'QNg',  'Vietnam'),  -- Hợp nhất: Quảng Ngãi + Kon Tum
+  (21, 'Gia Lai',        'GL',   'Vietnam'),  -- Hợp nhất: Gia Lai + Bình Định
+  (22, 'Đắk Lắk',        'DLak', 'Vietnam'),  -- Hợp nhất: Đắk Lắk + Phú Yên
+  (23, 'Khánh Hòa',      'KH',   'Vietnam'),  -- Hợp nhất: Khánh Hòa + Ninh Thuận
+  (24, 'Lâm Đồng',       'LD',   'Vietnam'),  -- Hợp nhất: Lâm Đồng + Bình Thuận + Đắk Nông
+-- Miền Nam / Tây Nguyên (10 tỉnh/thành)
+  (25, 'TP. Hồ Chí Minh','HCM',  'Vietnam'),  -- Hợp nhất: TP.HCM + Bình Dương + Bà Rịa-Vũng Tàu (TP trực thuộc TW)
+  (26, 'Đồng Nai',       'DNa',  'Vietnam'),  -- Hợp nhất: Đồng Nai + Bình Phước
+  (27, 'Tây Ninh',       'TN',   'Vietnam'),  -- Hợp nhất: Tây Ninh + Long An
+  (28, 'Tiền Giang',     'TG',   'Vietnam'),  -- Hợp nhất: Tiền Giang + Bến Tre
+  (29, 'Đồng Tháp',      'DT',   'Vietnam'),  -- Hợp nhất: Đồng Tháp + An Giang
+  (30, 'Vĩnh Long',      'VL',   'Vietnam'),  -- Hợp nhất: Vĩnh Long + Trà Vinh
+  (31, 'Cần Thơ',        'CT',   'Vietnam'),  -- Hợp nhất: Cần Thơ + Hậu Giang + Sóc Trăng (TP trực thuộc TW)
+  (32, 'Kiên Giang',     'KG',   'Vietnam'),  -- Hợp nhất: Kiên Giang + Cà Mau + Bạc Liêu
+  (33, 'Lai Châu',       'LC',   'Vietnam'),  -- Giữ nguyên
+  (34, 'Điện Biên',      'DB',   'Vietnam');  -- Giữ nguyên
+
+SELECT setval('provinces_id_seq', 34);
+
+
+-- ============================================================
+-- PHẦN 2b: SÂN BAY (22 sân bay dân sự đang hoạt động)
+-- Tỉnh được map theo địa giới hành chính MỚI
+-- ============================================================
+
+INSERT INTO locations (id, name, location_type, province_id, address, latitude, longitude, iata_code) VALUES
+-- Sân bay quốc tế (11 sân bay)
+  ( 1, 'Sân bay Quốc tế Nội Bài',       'airport',  1, 'Huyện Sóc Sơn, Hà Nội',                           21.2212700, 105.8074100, 'HAN'),
+  ( 2, 'Sân bay Quốc tế Tân Sơn Nhất',  'airport', 25, 'Đường Trường Sơn, Tân Bình, TP. Hồ Chí Minh',     10.8187900, 106.6520000, 'SGN'),
+  ( 3, 'Sân bay Quốc tế Đà Nẵng',       'airport', 19, 'Đường Nguyễn Văn Linh, Hải Châu, Đà Nẵng',        16.0439200, 108.1992300, 'DAD'),
+  ( 4, 'Sân bay Quốc tế Cam Ranh',      'airport', 23, 'Xã Cam Thịnh Đông, TP. Cam Ranh, Khánh Hòa',      11.9982100, 109.2191800, 'CXR'),
+  ( 5, 'Sân bay Quốc tế Phú Quốc',      'airport', 32, 'Dương Tơ, Phú Quốc, Kiên Giang',                  10.1697600, 103.9930800, 'PQC'),
+  ( 6, 'Sân bay Quốc tế Cát Bi',        'airport', 10, 'Quận Hải An, Hải Phòng',                           20.8194900, 106.7249700, 'HPH'),
+  ( 7, 'Sân bay Quốc tế Vân Đồn',       'airport',  7, 'Huyện Vân Đồn, Quảng Ninh',                        21.1181000, 107.4142000, 'VDO'),
+  ( 8, 'Sân bay Quốc tế Liên Khương',   'airport', 24, 'Thị trấn Liên Nghĩa, Đức Trọng, Lâm Đồng',        11.7503700, 108.3671300, 'DLI'),
+  ( 9, 'Sân bay Quốc tế Phú Bài',       'airport', 18, 'Thị trấn Phú Bài, Hương Thủy, Huế',               16.4015200, 107.7026100, 'HUI'),
+  (10, 'Sân bay Quốc tế Cần Thơ',       'airport', 31, 'Quận Bình Thủy, Cần Thơ',                          10.0853100, 105.7118800, 'VCA'),
+  (11, 'Sân bay Quốc tế Vinh',          'airport', 15, 'Xã Nghi Phong, Nghi Lộc, Nghệ An',                 18.7376100, 105.6708100, 'VII'),
+-- Sân bay nội địa (11 sân bay)
+  (12, 'Sân bay Tuy Hòa',               'airport', 22, 'Phường 9, TP. Tuy Hòa, Đắk Lắk (cũ: Phú Yên)',    13.0495000, 109.3337700, 'TBB'),
+  (13, 'Sân bay Pleiku',                'airport', 21, 'Xã Biển Hồ, TP. Pleiku, Gia Lai',                  13.9549900, 108.0169200, 'PXU'),
+  (14, 'Sân bay Phù Cát',              'airport', 21, 'Phù Cát, Gia Lai (cũ: Bình Định)',                  13.9549600, 109.0420600, 'UIH'),
+  (15, 'Sân bay Đồng Hới',             'airport', 17, 'Đồng Hới, Quảng Trị (cũ: Quảng Bình)',             17.5150200, 106.5060200, 'VDH'),
+  (16, 'Sân bay Chu Lai',              'airport', 19, 'Núi Thành, Đà Nẵng (cũ: Quảng Nam)',               15.4032500, 108.7068800, 'VCL'),
+  (17, 'Sân bay Thọ Xuân',             'airport', 12, 'Thị trấn Sao Vàng, Thọ Xuân, Thanh Hóa',          19.9016700, 105.4678000, 'THD'),
+  (18, 'Sân bay Rạch Giá',             'airport', 32, 'TP. Rạch Giá, Kiên Giang',                          9.9580200, 105.1322000, 'VKG'),
+  (19, 'Sân bay Cà Mau',               'airport', 32, 'Phường 6, TP. Cà Mau, Kiên Giang (cũ: Cà Mau)',     9.1776700, 105.1774200, 'CAH'),
+  (20, 'Sân bay Điện Biên Phủ',        'airport', 34, 'P. Mường Thanh, TP. Điện Biên Phủ',               21.3975000, 103.0082800, 'DIN'),
+  (21, 'Sân bay Côn Đảo',              'airport', 25, 'Huyện Côn Đảo, TP. Hồ Chí Minh (cũ: BR-VT)',       8.7318300, 106.6327900, 'VCS'),
+  (22, 'Sân bay Nà Sản',               'airport', 13, 'Huyện Mai Sơn, Sơn La',                            21.2170000, 104.0320000, 'SQH');
+
+SELECT setval('locations_id_seq', 22);
+
+
+-- ============================================================
+-- PHẦN 2c: GA TÀU — TUYẾN LÀO CAI → HÀ NỘI (13 ga chính)
+-- Tàu SP1/SP3/SP7 chạy tuyến này, qua: Lào Cai – Phố Lu – Bảo Hà – Mậu A – Yên Bái – Phú Thọ – Việt Trì – Vĩnh Yên – Phúc Yên – Yên Viên – Gia Lâm – Hà Nội
+-- ============================================================
+
+INSERT INTO locations (id, name, location_type, province_id, address, latitude, longitude, iata_code) VALUES
+  (23, 'Ga Lào Cai',      'train_station',  2, 'Phường Lào Cai, TP. Lào Cai, tỉnh Lào Cai',            22.4860000, 103.9720000, NULL),
+  (24, 'Ga Phố Lu',       'train_station',  2, 'Thị trấn Phố Lu, Bảo Thắng, Lào Cai',                  22.3010000, 104.0890000, NULL),
+  (25, 'Ga Bảo Hà',       'train_station',  2, 'Thị trấn Bảo Hà, Bảo Yên, Lào Cai',                   22.1600000, 104.2600000, NULL),
+  (26, 'Ga Mậu A',        'train_station',  2, 'Thị trấn Mậu A, Văn Yên, Lào Cai (cũ: Yên Bái)',      21.8450000, 104.5430000, NULL),
+  (27, 'Ga Yên Bái',      'train_station',  2, 'Phường Nguyễn Thái Học, TP. Yên Bái, Lào Cai',         21.7220000, 104.9060000, NULL),
+  (28, 'Ga Phú Thọ',      'train_station',  4, 'P. Thanh Vinh, TP. Phú Thọ, tỉnh Phú Thọ',            21.3970000, 105.2290000, NULL),
+  (29, 'Ga Việt Trì',     'train_station',  4, 'P. Thọ Sơn, TP. Việt Trì, Phú Thọ',                   21.3030000, 105.4280000, NULL),
+  (30, 'Ga Vĩnh Yên',     'train_station',  4, 'P. Khai Quang, TP. Vĩnh Yên, Phú Thọ (cũ: Vĩnh Phúc)',21.3090000, 105.5970000, NULL),
+  (31, 'Ga Phúc Yên',     'train_station',  4, 'P. Trưng Trắc, TP. Phúc Yên, Phú Thọ (cũ: Vĩnh Phúc)',21.2600000, 105.7260000, NULL),
+  (32, 'Ga Yên Viên',     'train_station',  1, 'Thị trấn Yên Viên, Gia Lâm, Hà Nội',                  21.0440000, 105.8850000, NULL),
+  (33, 'Ga Gia Lâm',      'train_station',  1, 'Phường Gia Lâm, Long Biên, Hà Nội',                    21.0260000, 105.8850000, NULL),
+  (34, 'Ga Hà Nội',       'train_station',  1, '120 Lê Duẩn, Hoàn Kiếm, Hà Nội',                      21.0244500, 105.8412100, NULL),
+  (35, 'Ga Giáp Bát',     'train_station',  1, '366 Giải Phóng, Hoàng Mai, Hà Nội',                    20.9828700, 105.8424600, NULL);
+
+
+-- ============================================================
+-- PHẦN 2d: GA TÀU — TUYẾN HÀ NỘI → TP.HCM (tuyến Bắc–Nam, ~40 ga chính)
+-- Thứ tự từ Bắc xuống Nam
+-- ============================================================
+
+INSERT INTO locations (id, name, location_type, province_id, address, latitude, longitude, iata_code) VALUES
+  -- Hà Nam (tỉnh mới gồm Hà Nam + Ninh Bình + Nam Định)
+  (36, 'Ga Phủ Lý',       'train_station', 11, 'Quốc lộ 1A, Phường Hai Bà Trưng, TP. Phủ Lý, Hà Nam',   20.5456600, 105.9121800, NULL),
+  (37, 'Ga Nam Định',      'train_station', 11, '2 Trần Đăng Ninh, TP. Nam Định, Hà Nam (cũ: Nam Định)',  20.4194200, 106.1682000, NULL),
+  (38, 'Ga Ninh Bình',     'train_station', 11, 'P. Đông Thành, TP. Ninh Bình, Hà Nam (cũ: Ninh Bình)',   20.2579600, 105.9753700, NULL),
+  -- Thanh Hóa
+  (39, 'Ga Bỉm Sơn',      'train_station', 12, 'P. Ba Đình, TX. Bỉm Sơn, Thanh Hóa',                     20.0812000, 105.8520000, NULL),
+  (40, 'Ga Thanh Hóa',    'train_station', 12, '19 Dương Đình Nghệ, P. Đông Thọ, TP. Thanh Hóa',         19.8066700, 105.7774800, NULL),
+  (41, 'Ga Minh Khôi',    'train_station', 12, 'Xã Minh Khôi, Nông Cống, Thanh Hóa',                     19.5330000, 105.7070000, NULL),
+  -- Nghệ An
+  (42, 'Ga Hoàng Mai',    'train_station', 15, 'P. Hoàng Mai, TX. Hoàng Mai, Nghệ An',                    19.2730000, 105.5880000, NULL),
+  (43, 'Ga Cầu Giát',     'train_station', 15, 'TT. Cầu Giát, Quỳnh Lưu, Nghệ An',                      19.2733800, 105.5882000, NULL),
+  (44, 'Ga Vinh',         'train_station', 15, '1 Lệ Ninh, P. Quán Bầu, TP. Vinh, Nghệ An',              18.6820000, 105.6781100, NULL),
+  -- Hà Tĩnh
+  (45, 'Ga Yên Trung',    'train_station', 16, 'Xã Thịnh Lộc, Lộc Hà, Hà Tĩnh',                         18.2870000, 105.9770000, NULL),
+  (46, 'Ga Hương Phố',    'train_station', 16, 'Xã Hương Phố, Hương Khê, Hà Tĩnh',                      17.9890000, 105.8490000, NULL),
+  (47, 'Ga Đông Lễ',      'train_station', 16, 'Xã Đồng Lộc, Can Lộc, Hà Tĩnh',                         18.1760000, 105.7870000, NULL),
+  -- Quảng Trị (tỉnh mới gồm Quảng Bình + Quảng Trị)
+  (48, 'Ga Đồng Hới',     'train_station', 17, 'P. Đồng Phú, TP. Đồng Hới, Quảng Trị (cũ: Quảng Bình)', 17.4706000, 106.5994000, NULL),
+  (49, 'Ga Đông Hà',      'train_station', 17, 'P. Đông Lương, TP. Đông Hà, Quảng Trị',                   16.8164000, 107.1003000, NULL),
+  -- Huế (TP trực thuộc TW)
+  (50, 'Ga Huế',          'train_station', 18, '2 Bùi Thị Xuân, TP. Huế',                                16.4653000, 107.5955500, NULL),
+  (51, 'Ga Lăng Cô',      'train_station', 18, 'TT. Lăng Cô, Phú Lộc, Huế',                             16.2220000, 108.0720000, NULL),
+  -- Đà Nẵng (TP trực thuộc TW, gồm cả Quảng Nam)
+  (52, 'Ga Đà Nẵng',      'train_station', 19, '202 Hải Phòng, Thanh Khê, Đà Nẵng',                      16.0682000, 108.2068000, NULL),
+  (53, 'Ga Trà Kiệu',     'train_station', 19, 'Xã Duy Trung, Duy Xuyên, Đà Nẵng (cũ: Quảng Nam)',       15.7930000, 108.2820000, NULL),
+  (54, 'Ga Tam Kỳ',       'train_station', 19, 'P. An Mỹ, TP. Tam Kỳ, Đà Nẵng (cũ: Quảng Nam)',          15.5657000, 108.4745000, NULL),
+  -- Quảng Ngãi (gồm cả Kon Tum)
+  (55, 'Ga Quảng Ngãi',   'train_station', 20, 'P. Nghĩa Lộ, TP. Quảng Ngãi',                             15.1217000, 108.7974000, NULL),
+  (56, 'Ga Đức Phổ',      'train_station', 20, 'TT. Đức Phổ, Quảng Ngãi',                                14.8570000, 109.0490000, NULL),
+  (57, 'Ga Bồng Sơn',     'train_station', 21, 'TT. Bồng Sơn, Hoài Nhơn, Gia Lai (cũ: Bình Định)',       14.4480000, 109.0150000, NULL),
+  -- Gia Lai (gồm cả Bình Định)
+  (58, 'Ga Diêu Trì',     'train_station', 21, 'TT. Diêu Trì, Tuy Phước, Gia Lai (cũ: Bình Định)',       13.8682000, 109.0973000, NULL),
+  (59, 'Ga Quy Nhơn',     'train_station', 21, 'P. Lê Hồng Phong, TP. Quy Nhơn, Gia Lai (cũ: Bình Định)',13.7826000, 109.2253000, NULL),
+  -- Đắk Lắk (gồm cả Phú Yên)
+  (60, 'Ga Tuy Hòa',      'train_station', 22, 'P. 6, TP. Tuy Hòa, Đắk Lắk (cũ: Phú Yên)',              13.0942000, 109.3174000, NULL),
+  (61, 'Ga Giã',          'train_station', 22, 'TT. Vạn Giã, Vạn Ninh, Đắk Lắk (cũ: Khánh Hòa)',        12.6920000, 109.2250000, NULL),
+  -- Khánh Hòa (gồm cả Ninh Thuận)
+  (62, 'Ga Nha Trang',    'train_station', 23, '17 Thái Nguyên, P. Phước Tân, TP. Nha Trang, Khánh Hòa', 12.2487400, 109.1968000, NULL),
+  (63, 'Ga Tháp Chàm',    'train_station', 23, 'P. Đô Vinh, TP. Phan Rang-Tháp Chàm, Khánh Hòa (cũ: NT)',11.5633000, 108.9927000, NULL),
+  -- Lâm Đồng (gồm cả Bình Thuận + Đắk Nông)
+  (64, 'Ga Phan Thiết',   'train_station', 24, 'P. Bình Hưng, TP. Phan Thiết, Lâm Đồng (cũ: Bình Thuận)',10.9283000, 108.1014000, NULL),
+  (65, 'Ga Mương Mán',    'train_station', 24, 'Xã Mương Mán, Hàm Thuận Nam, Lâm Đồng (cũ: Bình Thuận)', 10.9118000, 108.0433000, NULL),
+  -- TP. Hồ Chí Minh (gồm cả Bình Dương + Bà Rịa-Vũng Tàu)
+  (66, 'Ga Sóng Thần',    'train_station', 25, 'P. Dĩ An, TP. Dĩ An, TP. Hồ Chí Minh (cũ: Bình Dương)',  10.8820000, 106.7726000, NULL),
+  -- Đồng Nai (gồm cả Bình Phước)
+  (67, 'Ga Trảng Bom',    'train_station', 26, 'TT. Trảng Bom, Đồng Nai',                                 10.9617000, 107.0123000, NULL),
+  (68, 'Ga Biên Hòa',     'train_station', 26, 'P. Quang Vinh, TP. Biên Hòa, Đồng Nai',                   10.9450000, 106.8228000, NULL),
+  (69, 'Ga Sài Gòn',      'train_station', 25, '1 Nguyễn Thông, P. 9, Q. 3, TP. Hồ Chí Minh',            10.7818600, 106.6797800, NULL);
+
+
+-- Bến xe khách chính (10 bến)
+INSERT INTO locations (id, name, location_type, province_id, address, latitude, longitude, iata_code) VALUES
+  (70, 'Bến xe Mỹ Đình',        'bus_station',  1, 'Phạm Hùng, Nam Từ Liêm, Hà Nội',                     21.0278400, 105.7826600, NULL),
+  (71, 'Bến xe Giáp Bát',       'bus_station',  1, '366 Giải Phóng, Hoàng Mai, Hà Nội',                   20.9917800, 105.8434900, NULL),
+  (72, 'Bến xe Nước Ngầm',      'bus_station',  1, 'Ngọc Hồi, Hoàng Mai, Hà Nội',                         20.9617600, 105.8515100, NULL),
+  (73, 'Bến xe Miền Đông Mới',  'bus_station', 25, 'Quốc lộ 1A, Dĩ An, TP. Hồ Chí Minh (cũ: Bình Dương)',10.9156600, 106.7672700, NULL),
+  (74, 'Bến xe Miền Tây',       'bus_station', 25, '395 Kinh Dương Vương, Bình Tân, TP. Hồ Chí Minh',     10.7454900, 106.6100100, NULL),
+  (75, 'Bến xe Đà Nẵng',        'bus_station', 19, '33 Điện Biên Phủ, Thanh Khê, Đà Nẵng',                16.0597900, 108.1809300, NULL),
+  (76, 'Bến xe Nha Trang',      'bus_station', 23, '23 Tháng 10, TP. Nha Trang, Khánh Hòa',               12.2387600, 109.1967400, NULL),
+  (77, 'Bến xe Đà Lạt',         'bus_station', 24, '1 Tô Hiến Thành, P. 3, TP. Đà Lạt, Lâm Đồng',         11.9404500, 108.4419200, NULL),
+  (78, 'Bến xe Vinh',           'bus_station', 15, 'Đường Lê Nin, TP. Vinh, Nghệ An',                      18.6731000, 105.6907000, NULL),
+  (79, 'Bến xe Huế',            'bus_station', 18, '97 Hùng Vương, TP. Huế',                              16.4644000, 107.5826000, NULL);
+
+SELECT setval('locations_id_seq', 79);
+
+
+-- ============================================================
+-- PHẦN 3: XE KHÁCH (10 bản ghi mỗi bảng)
+-- ============================================================
+
+INSERT INTO bus_companies (id, partner_id, name, description, avg_rating, total_reviews) VALUES
+  ( 1,  1, 'Phương Trang (FUTA Bus)', 'Nhà xe chất lượng cao tuyến Bắc–Nam, limousine và giường nằm', 4.50, 12800),
+  ( 2,  4, 'Thành Bưởi',             'Xe khách chuyên tuyến TP.HCM – Đà Lạt, Nha Trang',             4.30,  9500),
+  ( 3,  6, 'Hoàng Long – Hoa Mai',   'Tuyến Hà Nội – Vinh – Đà Nẵng, xe giường nằm hiện đại',        4.20,  7300),
+  ( 4,  8, 'Kumho Samco',            'Chuyên tuyến TP.HCM – Nha Trang – Đà Lạt',                     4.10,  5600),
+  ( 5, 10, 'Hà Sơn – Hải Vân',      'Tuyến Hà Nội – Thanh Hóa – Nghệ An',                           3.90,  3800),
+  ( 6,  1, 'Mai Linh Express',       'Xe khách liên tỉnh chất lượng cao toàn quốc',                   4.00,  4200),
+  ( 7,  4, 'Thuận Thảo',             'Tuyến TP.HCM – Quy Nhơn – Phú Yên',                            4.15,  6100),
+  ( 8,  8, 'Sao Việt',              'Xe limousine tuyến Hà Nội – Ninh Bình – Thanh Hóa',             4.35,  5500),
+  ( 9,  6, 'Hùng Cường',            'Tuyến Hà Nội – Quảng Bình – Huế',                              4.05,  4900),
+  (10,  1, 'Đức Hạnh Limousine',     'Xe limousine VIP tuyến TP.HCM – Đà Lạt',                       4.60,  7800);
+
+SELECT setval('bus_companies_id_seq', 10);
+
+
+INSERT INTO vehicle_types (id, name, seat_type, total_seats, floors, amenities) VALUES
+  ( 1, 'Limousine 9 chỗ',            'limousine',  9, 1, 'Điều hoà, wifi, nước, USB, màn hình cá nhân, ghế massage'),
+  ( 2, 'Giường nằm 34 chỗ (2 tầng)','sleeper',    34, 2, 'Điều hoà, wifi, chăn gối, toilet, TV'),
+  ( 3, 'Ghế ngồi thường 45 chỗ',    'seat',       45, 1, 'Điều hoà, wifi'),
+  ( 4, 'Cabin VIP 20 chỗ',          'cabin',      20, 1, 'Điều hoà, wifi, cabin riêng tư, TV, ổ cắm điện'),
+  ( 5, 'Ghế ngồi 2 tầng 44 chỗ',   'seat',       44, 2, 'Điều hoà, wifi, ghế ngả'),
+  ( 6, 'Limousine 18 chỗ',          'limousine',  18, 1, 'Điều hoà, wifi, ghế recliner, USB, nước'),
+  ( 7, 'Giường nằm 40 chỗ (2 tầng)','sleeper',   40, 2, 'Điều hoà, wifi, chăn gối, toilet'),
+  ( 8, 'Ghế ngồi 29 chỗ',          'seat',       29, 1, 'Điều hoà'),
+  ( 9, 'Cabin Sleeper 20 chỗ',      'cabin',      20, 2, 'Điều hoà, wifi, cabin đôi, TV, toilet'),
+  (10, 'Limousine 12 chỗ VIP',      'limousine',  12, 1, 'Điều hoà, wifi, ghế da, minibar, USB, đèn ngủ');
+
+SELECT setval('vehicle_types_id_seq', 10);
+
+
+INSERT INTO vehicles (id, bus_company_id, vehicle_type_id, license_plate, manufacture_year, status) VALUES
+  ( 1, 1, 1, '51B-12345', 2022, 'active'),
+  ( 2, 1, 2, '51B-23456', 2021, 'active'),
+  ( 3, 2, 4, '51B-34567', 2023, 'active'),
+  ( 4, 3, 3, '29B-11111', 2020, 'maintenance'),
+  ( 5, 4, 5, '51B-45678', 2022, 'active'),
+  ( 6, 5, 6, '29B-22222', 2021, 'active'),
+  ( 7, 6, 7, '51B-56789', 2023, 'active'),
+  ( 8, 7, 2, '77B-11111', 2022, 'active'),
+  ( 9, 8, 9, '29B-33333', 2023, 'active'),
+  (10,10,10, '51B-67890', 2024, 'active');
+
+SELECT setval('vehicles_id_seq', 10);
+
+
+INSERT INTO bus_routes (id, bus_company_id, origin_id, destination_id, distance_km, base_price, status) VALUES
+  ( 1,  1, 73, 76,  445, 250000, 'active'), -- FUTA:       HCM → Nha Trang
+  ( 2,  2, 73, 77,  300, 200000, 'active'), -- Thành Bưởi: HCM → Đà Lạt
+  ( 3,  3, 70, 75,  760, 350000, 'active'), -- Hoàng Long: HN → Đà Nẵng
+  ( 4,  4, 73, 76,  445, 230000, 'active'), -- Kumho:      HCM → Nha Trang
+  ( 5,  5, 70, 78,  290, 180000, 'active'), -- Hà Sơn:     HN → Vinh
+  ( 6,  6, 70, 75,  760, 340000, 'active'), -- Mai Linh:   HN → Đà Nẵng
+  ( 7,  7, 73, 76,  445, 240000, 'active'), -- Thuận Thảo: HCM → Nha Trang
+  ( 8,  8, 70, 78,  290, 190000, 'active'), -- Sao Việt:   HN → Vinh
+  ( 9,  9, 70, 79,  690, 310000, 'active'), -- Hùng Cường: HN → Huế
+  (10, 10, 73, 77,  300, 280000, 'active'); -- Đức Hạnh:   HCM → Đà Lạt (limousine)
+
+SELECT setval('bus_routes_id_seq', 10);
+
+
+INSERT INTO bus_trips (id, route_id, vehicle_id, departure_time, arrival_time, available_seats, ticket_price, status) VALUES
+  ( 1,  1,  2, '2026-04-10 07:00:00+07', '2026-04-10 15:30:00+07', 10, 260000, 'open'),
+  ( 2,  2,  3, '2026-04-10 08:00:00+07', '2026-04-10 14:00:00+07',  5, 210000, 'open'),
+  ( 3,  3,  4, '2026-04-10 19:00:00+07', '2026-04-11 08:00:00+07', 20, 360000, 'open'),
+  ( 4,  4,  5, '2026-04-11 06:30:00+07', '2026-04-11 15:00:00+07',  0, 240000, 'full'),
+  ( 5,  5,  6, '2026-04-11 07:00:00+07', '2026-04-11 13:30:00+07', 15, 185000, 'open'),
+  ( 6,  6,  7, '2026-04-11 18:30:00+07', '2026-04-12 07:30:00+07', 12, 350000, 'open'),
+  ( 7,  7,  8, '2026-04-12 06:00:00+07', '2026-04-12 14:30:00+07',  8, 250000, 'open'),
+  ( 8,  8,  9, '2026-04-12 08:00:00+07', '2026-04-12 14:00:00+07', 18, 195000, 'open'),
+  ( 9,  9,  6, '2026-04-12 20:00:00+07', '2026-04-13 09:00:00+07',  4, 320000, 'open'),
+  (10, 10, 10, '2026-04-13 07:30:00+07', '2026-04-13 13:30:00+07',  9, 290000, 'open');
+
+SELECT setval('bus_trips_id_seq', 10);
+
+
+INSERT INTO bus_seats (id, trip_id, seat_code, floor, row_label, status, extra_price) VALUES
+  ( 1,  1, 'A1', 'lower', 'A', 'booked',    20000),
+  ( 2,  1, 'A2', 'lower', 'A', 'available', 20000),
+  ( 3,  1, 'B1', 'upper', 'B', 'available',     0),
+  ( 4,  2, 'C1', 'lower', 'C', 'booked',    15000),
+  ( 5,  2, 'C2', 'upper', 'C', 'available',     0),
+  ( 6,  3, 'D1', 'lower', 'D', 'available', 20000),
+  ( 7,  3, 'D2', 'upper', 'D', 'available',     0),
+  ( 8,  5, 'E1', NULL,    'A', 'booked',        0),
+  ( 9,  6, 'F1', 'lower', 'A', 'available', 25000),
+  (10, 10, 'A1', NULL,    'A', 'available', 30000);
+
+SELECT setval('bus_seats_id_seq', 10);
+
+
+INSERT INTO bus_pickup_points (id, route_id, point_name, point_type, address, stop_order, estimated_time) VALUES
+  ( 1, 1, 'Bến xe Miền Đông Mới',   'pickup',  'Quốc lộ 1A, Dĩ An, TP. HCM (cũ: Bình Dương)', 1, '07:00'),
+  ( 2, 1, 'Trạm dừng Dầu Giây',     'both',    'QL1A, Thống Nhất, Đồng Nai',                    2, '08:30'),
+  ( 3, 1, 'Trạm dừng Tháp Chàm',    'both',    'QL1A, Phan Rang-Tháp Chàm, Khánh Hòa',          3, '12:00'),
+  ( 4, 1, 'Bến xe Nha Trang',       'dropoff', '23 Tháng 10, TP. Nha Trang, Khánh Hòa',         4, '15:30'),
+  ( 5, 2, 'Bến xe Miền Đông Mới',   'pickup',  'Quốc lộ 1A, Dĩ An, TP. HCM (cũ: Bình Dương)', 1, '08:00'),
+  ( 6, 2, 'Trạm dừng Bảo Lộc',     'both',    'QL20, TP. Bảo Lộc, Lâm Đồng',                   2, '11:00'),
+  ( 7, 2, 'Bến xe Đà Lạt',         'dropoff', '1 Tô Hiến Thành, TP. Đà Lạt, Lâm Đồng',         3, '14:00'),
+  ( 8, 3, 'Bến xe Mỹ Đình',        'pickup',  'Phạm Hùng, Nam Từ Liêm, Hà Nội',                1, '19:00'),
+  ( 9, 3, 'Trạm dừng Thanh Hóa',   'both',    '19 Dương Đình Nghệ, TP. Thanh Hóa',              2, '22:30'),
+  (10, 3, 'Bến xe Đà Nẵng',        'dropoff', '33 Điện Biên Phủ, Đà Nẵng',                      3, '08:00');
+
+SELECT setval('bus_pickup_points_id_seq', 10);
+
+
+-- ============================================================
+-- PHẦN 4: MÁY BAY (10 bản ghi)
+-- ============================================================
+
+INSERT INTO airlines (id, partner_id, name, iata_code, nationality) VALUES
+  (1, 2,    'Vietnam Airlines',    'VN', 'Vietnam'),
+  (2, 5,    'Vietjet Air',         'VJ', 'Vietnam'),
+  (3, 7,    'Bamboo Airways',      'QH', 'Vietnam'),
+  (4, 9,    'Pacific Airlines',    'BL', 'Vietnam'),
+  (5, NULL, 'Vietravel Airlines',  'VU', 'Vietnam');
+
+SELECT setval('airlines_id_seq', 5);
+
+
+INSERT INTO cabin_classes (id, name, class_code, description, baggage_kg) VALUES
+  (1, 'Phổ thông',          'economy',         'Ghế hạng phổ thông, hành lý ký gửi 23kg',                   7),
+  (2, 'Phổ thông đặc biệt', 'premium_economy', 'Ghế rộng, thêm khoảng duỗi chân, ưu tiên lên máy bay',     10),
+  (3, 'Thương gia',         'business',        'Ghế recliner 180°, bữa ăn cao cấp, phòng chờ thương gia',  10),
+  (4, 'Hạng nhất',          'first_class',     'Cabin riêng, dịch vụ butler, bữa ăn fine dining',          10),
+  (5, 'Phổ thông tiết kiệm','economy',         'Giá rẻ nhất, không bao gồm hành lý ký gửi',                 7);
+
+SELECT setval('cabin_classes_id_seq', 5);
+
+
+INSERT INTO flights (id, airline_id, flight_number, origin_id, destination_id, departure_time, arrival_time, aircraft_type, status) VALUES
+  ( 1, 1, 'VN123',  1,  2, '2026-04-10 06:00:00+07', '2026-04-10 08:05:00+07', 'Airbus A321neo', 'on_time'),
+  ( 2, 2, 'VJ456',  2,  3, '2026-04-10 10:30:00+07', '2026-04-10 12:10:00+07', 'Airbus A320',    'on_time'),
+  ( 3, 1, 'VN789',  1,  3, '2026-04-11 07:30:00+07', '2026-04-11 09:20:00+07', 'Boeing 787-9',   'on_time'),
+  ( 4, 3, 'QH202',  2,  1, '2026-04-11 13:00:00+07', '2026-04-11 15:10:00+07', 'Airbus A319',    'delayed'),
+  ( 5, 2, 'VJ999',  1,  2, '2026-04-12 18:00:00+07', '2026-04-12 20:05:00+07', 'Airbus A321',    'on_time'),
+  ( 6, 1, 'VN321',  2,  4, '2026-04-12 08:00:00+07', '2026-04-12 09:10:00+07', 'Airbus A321neo', 'on_time'),
+  ( 7, 3, 'QH501',  1,  9, '2026-04-13 07:00:00+07', '2026-04-13 08:30:00+07', 'Boeing 787-9',   'on_time'),
+  ( 8, 4, 'BL220',  2,  3, '2026-04-13 15:00:00+07', '2026-04-13 16:45:00+07', 'Airbus A320',    'on_time'),
+  ( 9, 2, 'VJ711',  1,  5, '2026-04-14 06:30:00+07', '2026-04-14 08:15:00+07', 'Airbus A320',    'on_time'),
+  (10, 1, 'VN215',  2,  8, '2026-04-14 09:00:00+07', '2026-04-14 10:15:00+07', 'ATR 72-600',     'on_time');
+
+SELECT setval('flights_id_seq', 10);
+
+
+INSERT INTO flight_seats (id, flight_id, cabin_class_id, seat_number, seat_position, ticket_price, status) VALUES
+  ( 1,  1, 1, '12A', 'window',  1250000, 'booked'),
+  ( 2,  1, 1, '12C', 'aisle',   1250000, 'available'),
+  ( 3,  1, 3, '2A',  'window',  4500000, 'available'),
+  ( 4,  2, 1, '15B', 'middle',   990000, 'booked'),
+  ( 5,  3, 2, '5A',  'window',  2100000, 'available'),
+  ( 6,  4, 1, '20C', 'aisle',    880000, 'available'),
+  ( 7,  5, 1, '18B', 'middle',  1150000, 'available'),
+  ( 8,  6, 3, '3A',  'window',  5200000, 'booked'),
+  ( 9,  7, 2, '7C',  'aisle',   2300000, 'available'),
+  (10,  8, 1, '22A', 'window',   950000, 'available');
+
+SELECT setval('flight_seats_id_seq', 10);
+
+
+-- ============================================================
+-- PHẦN 5: TÀU HỎA (10 bản ghi)
+-- ============================================================
+
+INSERT INTO trains (id, partner_id, train_code, train_name, train_type) VALUES
+  ( 1, 3, 'SE1',  'Thống Nhất SE1  – Hà Nội → Sài Gòn (nhanh nhất)', 'express'),
+  ( 2, 3, 'SE2',  'Thống Nhất SE2  – Sài Gòn → Hà Nội (nhanh nhất)', 'express'),
+  ( 3, 3, 'SE3',  'Thống Nhất SE3  – Hà Nội → Sài Gòn',              'express'),
+  ( 4, 3, 'SE4',  'Thống Nhất SE4  – Sài Gòn → Hà Nội',              'express'),
+  ( 5, 3, 'SE7',  'Thống Nhất SE7  – Hà Nội → Đà Nẵng',              'express'),
+  ( 6, 3, 'SE8',  'Thống Nhất SE8  – Đà Nẵng → Hà Nội',              'express'),
+  ( 7, 3, 'SP1',  'Tuyến Hà Nội – Lào Cai SP1',                      'express'),
+  ( 8, 3, 'SP3',  'Tuyến Hà Nội – Lào Cai SP3',                      'express'),
+  ( 9, 3, 'TN1',  'Tàu địa phương TN1 – Hà Nội → Vinh',              'regular'),
+  (10, 3, 'SNT2', 'Tàu du lịch Sài Gòn – Nha Trang SNT2',            'tourist');
+
+SELECT setval('trains_id_seq', 10);
+
+
+INSERT INTO train_carriages (id, train_id, carriage_number, carriage_type, seats_per_compartment) VALUES
+  ( 1, 1, 1, 'vip_ac_sleeper', 4),
+  ( 2, 1, 2, 'soft_sleeper',   4),
+  ( 3, 1, 3, 'hard_sleeper',   6),
+  ( 4, 1, 4, 'soft_seat',   NULL),
+  ( 5, 2, 1, 'soft_sleeper',   4),
+  ( 6, 2, 2, 'hard_sleeper',   6),
+  ( 7, 7, 1, 'soft_sleeper',   4),
+  ( 8, 7, 2, 'hard_seat',   NULL),
+  ( 9, 9, 1, 'soft_seat',   NULL),
+  (10,10, 1, 'vip_ac_sleeper', 4);
+
+SELECT setval('train_carriages_id_seq', 10);
+
+
+INSERT INTO train_trips (id, train_id, origin_id, destination_id, departure_time, arrival_time, status) VALUES
+  ( 1,  1, 34, 69, '2026-04-10 06:00:00+07', '2026-04-11 04:00:00+07', 'open'),  -- SE1: HN → SG
+  ( 2,  2, 69, 34, '2026-04-10 07:00:00+07', '2026-04-11 05:30:00+07', 'open'),  -- SE2: SG → HN
+  ( 3,  3, 34, 69, '2026-04-11 06:00:00+07', '2026-04-12 05:30:00+07', 'open'),  -- SE3: HN → SG
+  ( 4,  4, 69, 34, '2026-04-11 07:30:00+07', '2026-04-12 07:00:00+07', 'open'),  -- SE4: SG → HN
+  ( 5,  5, 34, 52, '2026-04-12 06:00:00+07', '2026-04-12 21:30:00+07', 'open'),  -- SE7: HN → Đà Nẵng
+  ( 6,  6, 52, 34, '2026-04-12 08:00:00+07', '2026-04-12 23:30:00+07', 'open'),  -- SE8: ĐN → HN
+  ( 7,  7, 34, 23, '2026-04-13 22:00:00+07', '2026-04-14 06:00:00+07', 'open'),  -- SP1: HN → Lào Cai
+  ( 8,  8, 23, 34, '2026-04-14 21:30:00+07', '2026-04-15 05:30:00+07', 'open'),  -- SP3: Lào Cai → HN
+  ( 9,  9, 34, 44, '2026-04-13 06:00:00+07', '2026-04-13 11:30:00+07', 'open'),  -- TN1: HN → Vinh
+  (10, 10, 69, 62, '2026-04-13 07:00:00+07', '2026-04-13 15:30:00+07', 'open');  -- SNT2: SG → Nha Trang
+
+SELECT setval('train_trips_id_seq', 10);
+
+
+INSERT INTO train_seats (id, trip_id, carriage_id, seat_number, berth_position, ticket_price, status) VALUES
+  ( 1,  1, 1, '01', 'lower',  950000, 'booked'),
+  ( 2,  1, 1, '02', 'upper',  850000, 'available'),
+  ( 3,  1, 2, '03', 'lower',  750000, 'available'),
+  ( 4,  1, 3, '01', 'lower',  550000, 'booked'),
+  ( 5,  2, 5, '01', 'lower',  750000, 'booked'),
+  ( 6,  2, 6, '02', 'upper',  480000, 'available'),
+  ( 7,  5, 7, '01', 'lower',  650000, 'available'),
+  ( 8,  9, 9, '05', 'seat',   320000, 'available'),
+  ( 9, 10,10, '02', 'lower',  880000, 'booked'),
+  (10,  3, 3, '04', 'middle', 500000, 'available');
+
+SELECT setval('train_seats_id_seq', 10);
+
+
+-- ============================================================
+-- PHẦN 6–9: ĐẶT VÉ, THANH TOÁN, VOUCHER, ĐÁNH GIÁ, BẢO HIỂM
+-- ============================================================
+
+INSERT INTO orders (id, order_code, customer_id, ticket_type, subtotal, service_fee, discount, total_amount, status, note) VALUES
+  ( 1, 'VXR2604001',  1, 'bus',     260000,  15000,     0,  275000, 'completed',       NULL),
+  ( 2, 'VXR2604002',  2, 'flight', 1250000,  30000, 50000, 1230000, 'completed',       'Chọn ghế cửa sổ'),
+  ( 3, 'VXR2604003',  3, 'train',   950000,  20000,     0,  970000, 'completed',       NULL),
+  ( 4, 'VXR2604004',  1, 'flight',  990000,  25000, 20000,  995000, 'paid',            NULL),
+  ( 5, 'VXR2604005',  2, 'bus',     210000,  15000,     0,  225000, 'cancelled',       'Đổi lịch trình'),
+  ( 6, 'VXR2604006',  4, 'train',   750000,  20000, 80000,  690000, 'paid',            NULL),
+  ( 7, 'VXR2604007',  5, 'bus',     360000,  15000,     0,  375000, 'paid',            'Cho tôi chỗ tầng dưới'),
+  ( 8, 'VXR2604008',  6, 'flight', 2100000,  30000,100000, 2030000, 'paid',            NULL),
+  ( 9, 'VXR2604009',  7, 'bus',     185000,  10000,     0,  195000, 'pending_payment', NULL),
+  (10, 'VXR2604010',  8, 'train',   480000,  15000, 20000,  475000, 'paid',            NULL);
+
+SELECT setval('orders_id_seq', 10);
+
+
+INSERT INTO order_items (id, order_id, bus_seat_id, flight_seat_id, train_seat_id,
+                         passenger_name, id_number, phone_number, date_of_birth, ticket_price, status) VALUES
+  ( 1,  1,  1, NULL, NULL, 'Nguyễn Văn An',   '079095012345', '0901234501', '1995-03-15',  260000, 'used'),
+  ( 2,  2, NULL,  1, NULL, 'Trần Thị Bình',   '079098023456', '0901234502', '1998-07-22', 1250000, 'used'),
+  ( 3,  3, NULL, NULL,  1, 'Lê Minh Châu',    '079090034567', '0901234503', '1990-11-05',  950000, 'used'),
+  ( 4,  4, NULL,  4, NULL, 'Nguyễn Văn An',   '079095012345', '0901234501', '1995-03-15',  990000, 'confirmed'),
+  ( 5,  5,  4, NULL, NULL, 'Trần Thị Bình',   '079098023456', '0901234502', '1998-07-22',  210000, 'cancelled'),
+  ( 6,  6, NULL, NULL,  4, 'Phạm Thị Dung',   '079000045678', '0901234504', '2000-05-18',  750000, 'confirmed'),
+  ( 7,  7,  3, NULL, NULL, 'Hoàng Văn Em',    '079093056789', '0901234505', '1993-09-30',  360000, 'confirmed'),
+  ( 8,  8, NULL,  5, NULL, 'Vũ Thị Phương',   '079097067890', '0901234506', '1997-02-14', 2100000, 'confirmed'),
+  ( 9,  9,  8, NULL, NULL, 'Đỗ Quốc Hùng',    '079088078901', '0901234507', '1988-12-01',  185000, 'confirmed'),
+  (10, 10, NULL, NULL,  6, 'Ngô Thị Kim',     '079001089012', '0901234508', '2001-08-25',  480000, 'confirmed');
+
+SELECT setval('order_items_id_seq', 10);
+
+
+INSERT INTO payments (id, order_id, payment_method, amount, status, transaction_code, paid_at) VALUES
+  ( 1,  1, 'momo',          275000, 'success', 'MM26040100001', '2026-04-05 09:15:00+07'),
+  ( 2,  2, 'credit_card',  1230000, 'success', 'CC26040100002', '2026-04-06 14:30:00+07'),
+  ( 3,  3, 'zalopay',       970000, 'success', 'ZP26040100003', '2026-04-07 10:00:00+07'),
+  ( 4,  4, 'bank_transfer',  995000,'success', 'BT26040100004', '2026-04-07 11:20:00+07'),
+  ( 5,  5, 'momo',          225000, 'refunded','MM26040100005', '2026-04-08 08:45:00+07'),
+  ( 6,  6, 'shopee_pay',    690000, 'success', 'SP26040100006', '2026-04-08 16:00:00+07'),
+  ( 7,  7, 'zalopay',       375000, 'success', 'ZP26040100007', '2026-04-09 08:30:00+07'),
+  ( 8,  8, 'credit_card',  2030000, 'success', 'CC26040100008', '2026-04-09 10:00:00+07'),
+  ( 9,  9, 'momo',          195000, 'pending', NULL,             NULL),
+  (10, 10, 'vexere_wallet',  475000, 'success', 'VW26040100010', '2026-04-10 07:45:00+07');
+
+SELECT setval('payments_id_seq', 10);
+
+
+INSERT INTO promotions (id, voucher_code, name, discount_type, discount_value, max_discount,
+                        min_order_value, usage_limit, used_count, start_date, end_date, applicable_for, status) VALUES
+  ( 1, 'FLASH50',     'Flash Sale thứ 3 giảm 50%',           'percentage',   50, 100000,  200000,  500, 120, '2026-04-01 12:00+07', '2026-12-31 23:59+07', 'all',    'active'),
+  ( 2, 'MOMO20K',    'Giảm 20K khi thanh toán MoMo',         'fixed_amount', 20000, NULL,  300000, 1000, 340, '2026-01-01 00:00+07', '2026-06-30 23:59+07', 'all',    'active'),
+  ( 3, 'TAUTET30',   'Giảm 30% vé tàu dịp Lễ 30/4',         'percentage',   30,  80000,  400000,  200,  55, '2026-04-20 00:00+07', '2026-05-05 23:59+07', 'train',  'active'),
+  ( 4, 'BAYHE100K',  'Giảm 100K vé máy bay hè 2026',         'fixed_amount',100000, NULL,  800000,  300,  88, '2026-06-01 00:00+07', '2026-08-31 23:59+07', 'flight', 'active'),
+  ( 5, 'NEWUSER50K', 'Tặng 50K cho khách hàng mới',          'fixed_amount', 50000, NULL,  100000, NULL,  15, '2026-01-01 00:00+07', '2026-12-31 23:59+07', 'all',    'active'),
+  ( 6, 'XEKHACH15',  'Giảm 15% vé xe khách cuối tuần',       'percentage',   15,  50000,  150000,  300,  62, '2026-04-01 00:00+07', '2026-12-31 23:59+07', 'bus',    'active'),
+  ( 7, 'ZALOPAY25K', 'Giảm 25K khi thanh toán ZaloPay',      'fixed_amount', 25000, NULL,  250000,  500, 201, '2026-03-01 00:00+07', '2026-06-30 23:59+07', 'all',    'active'),
+  ( 8, 'SHOPEEVX50K','Giảm 50K khi thanh toán ShopeePay',    'fixed_amount', 50000, NULL,  400000,  200,  44, '2026-04-01 00:00+07', '2026-05-31 23:59+07', 'all',    'active'),
+  ( 9, 'HDBANK100K', 'Giảm 100K khi thanh toán thẻ HDBank',  'fixed_amount',100000, NULL,  800000,  150,  33, '2026-04-01 00:00+07', '2026-06-30 23:59+07', 'flight', 'active'),
+  (10, 'BIRTHDAY20', 'Ưu đãi sinh nhật giảm 20%',            'percentage',   20,  80000,  200000, NULL,   8, '2026-01-01 00:00+07', '2026-12-31 23:59+07', 'all',    'active');
+
+SELECT setval('promotions_id_seq', 10);
+
+
+INSERT INTO voucher_usages (id, promotion_id, order_id, customer_id, discount_amount, used_at) VALUES
+  ( 1,  5,  1,  1,  50000, '2026-04-05 09:10:00+07'),
+  ( 2,  2,  2,  2,  50000, '2026-04-06 14:28:00+07'),
+  ( 3,  7,  3,  3,  25000, '2026-04-07 09:55:00+07'),
+  ( 4,  2,  4,  1,  20000, '2026-04-07 09:00:00+07'),
+  ( 5,  2,  5,  2,  20000, '2026-04-08 08:40:00+07'),
+  ( 6,  1,  6,  4,  80000, '2026-04-08 15:55:00+07'),
+  ( 7,  6,  7,  5,      0, '2026-04-09 08:25:00+07'),
+  ( 8,  8,  8,  6, 100000, '2026-04-09 09:55:00+07'),
+  ( 9,  5,  9,  7,  50000, '2026-04-09 14:00:00+07'),
+  (10,  7, 10,  8,  20000, '2026-04-10 07:40:00+07');
+
+SELECT setval('voucher_usages_id_seq', 10);
+
+
+INSERT INTO reviews (id, order_id, customer_id, partner_type, partner_id, rating, comment, partner_reply) VALUES
+  ( 1,  1,  1, 'bus_company',  1, 5, 'Xe sạch sẽ, tài xế thân thiện, đúng giờ. Rất hài lòng!',
+                                      'Cảm ơn quý khách, hẹn gặp lại!'),
+  ( 2,  2,  2, 'airline',      1, 4, 'Chuyến bay đúng giờ, tiếp viên nhiệt tình. Suất ăn khá ngon.', NULL),
+  ( 3,  3,  3, 'railway',      1, 4, 'Giường nằm thoải mái, vệ sinh sạch. Tàu trễ 15 phút.',
+                                      'Xin lỗi vì sự chậm trễ, chúng tôi sẽ cải thiện!'),
+  ( 4,  1,  1, 'bus_company',  1, 3, 'Xe hơi nóng, máy lạnh yếu.',
+                                      'Cảm ơn phản hồi, chúng tôi sẽ kiểm tra điều hoà.'),
+  ( 5,  2,  2, 'airline',      2, 5, 'Giá vé rẻ, không delay. Sẽ đặt lại!', NULL),
+  ( 6,  6,  4, 'railway',      1, 5, 'Toa VIP rất tiện nghi, nhân viên phục vụ tốt.',
+                                      'Cảm ơn, rất vui được phục vụ quý khách!'),
+  ( 7,  7,  5, 'bus_company',  3, 4, 'Xe mới, rộng rãi. Nhân viên lịch sự.', NULL),
+  ( 8,  8,  6, 'airline',      3, 5, 'Bamboo Airways đúng giờ, ghế êm.',
+                                      'Cảm ơn, hẹn gặp lại trên chuyến bay tiếp theo!'),
+  ( 9,  4,  1, 'airline',      1, 4, 'Vietnam Airlines phục vụ chuyên nghiệp.', NULL),
+  (10,  3,  3, 'railway',      1, 2, 'Toa tàu hơi cũ, điều hoà không lạnh.',
+                                      'Ghi nhận và sẽ cải thiện chất lượng toa tàu sớm nhất.');
+
+SELECT setval('reviews_id_seq', 10);
+
+
+INSERT INTO notifications (id, user_id, title, body, noti_type, is_read) VALUES
+  ( 1,  1, 'Đặt vé thành công – VXR2604001',
+           'Bạn đã đặt vé xe Phương Trang HCM → Nha Trang ngày 10/04/2026.',     'booking',      TRUE),
+  ( 2,  2, 'Đặt vé thành công – VXR2604002',
+           'Bạn đã đặt vé máy bay VN123 Hà Nội → TP.HCM ngày 10/04/2026.',       'booking',      TRUE),
+  ( 3,  3, 'Đặt vé thành công – VXR2604003',
+           'Bạn đã đặt vé tàu SE1 Hà Nội → Sài Gòn ngày 10/04/2026.',            'booking',      TRUE),
+  ( 4,  2, 'Vé đã bị huỷ – VXR2604005',
+           'Đơn VXR2604005 đã huỷ. Hoàn tiền trong 3–5 ngày làm việc.',           'cancellation', FALSE),
+  ( 5,  1, 'Flash Sale 50% – 12h–14h hôm nay!',
+           'Dùng mã FLASH50 giảm tới 50% (tối đa 100K) cho mọi loại vé.',         'promotion',    FALSE),
+  ( 6,  3, 'Nhắc nhở: Chuyến tàu SE1 khởi hành ngày mai',
+           'Tàu SE1 HN → SG khởi hành 06:00 ngày 10/04. Có mặt trước 30 phút.',  'booking',      TRUE),
+  ( 7,  4, 'Đặt vé thành công – VXR2604006',
+           'Bạn đã đặt vé tàu SE1 toa 1 giường 01 ngày 11/04/2026.',              'booking',      FALSE),
+  ( 8,  5, 'Đặt vé thành công – VXR2604007',
+           'Bạn đã đặt vé xe Hoàng Long HN → Đà Nẵng ngày 10/04/2026.',          'booking',      FALSE),
+  ( 9,  6, 'Chuyến bay QH202 bị delay',
+           'Chuyến QH202 TP.HCM → HN dự kiến delay 45 phút. Xin lỗi bất tiện.',  'system',       FALSE),
+  (10,  1, 'Voucher sinh nhật của bạn!',
+           'Chúc mừng sinh nhật! Dùng BIRTHDAY20 giảm 20% chuyến đi tiếp theo.', 'promotion',    FALSE);
+
+SELECT setval('notifications_id_seq', 10);
+
+
+INSERT INTO insurance_plans (id, name, description, premium, max_coverage, applicable_for) VALUES
+  ( 1, 'Bảo hiểm tai nạn cơ bản',    'Bồi thường tai nạn, tử vong, thương tật trong chuyến đi',  15000,  100000000, 'all'),
+  ( 2, 'Bảo hiểm trễ/huỷ chuyến xe', 'Bồi thường nếu xe chậm > 2h hoặc huỷ chuyến',              20000,     400000, 'bus'),
+  ( 3, 'Bảo hiểm trễ/huỷ chuyến bay','Bồi thường nếu bay delay > 2h hoặc bị huỷ',                25000,    1000000, 'flight'),
+  ( 4, 'Bảo hiểm hành lý',           'Bồi thường mất mát, hư hỏng hành lý',                      10000,     500000, 'all'),
+  ( 5, 'Gói toàn diện',              'Kết hợp: tai nạn + trễ huỷ + hành lý (tiết kiệm 20%)',     45000,    1500000, 'all'),
+  ( 6, 'Bảo hiểm y tế khẩn cấp',    'Chi phí y tế khẩn cấp phát sinh trong chuyến đi',           30000,   50000000, 'all'),
+  ( 7, 'Bảo hiểm tàu hỏa',          'Tai nạn + trễ tàu > 3h',                                   18000,     800000, 'train'),
+  ( 8, 'Bảo hiểm máy bay cao cấp',  'Tai nạn + delay + hành lý + y tế',                          55000,  200000000, 'flight'),
+  ( 9, 'Bảo hiểm xe khách cao cấp', 'Tai nạn + huỷ chuyến + hành lý',                            35000,   50000000, 'bus'),
+  (10, 'Bảo hiểm gia đình',         'Gói toàn diện cho đoàn gia đình (tối đa 4 người)',           80000,  300000000, 'all');
+
+SELECT setval('insurance_plans_id_seq', 10);
+
+
+INSERT INTO insurance_purchases (id, order_item_id, plan_id, premium_paid, purchased_at) VALUES
+  ( 1,  1, 2, 20000, '2026-04-05 09:12:00+07'),
+  ( 2,  2, 3, 25000, '2026-04-06 14:25:00+07'),
+  ( 3,  3, 7, 18000, '2026-04-07 09:58:00+07'),
+  ( 4,  2, 4, 10000, '2026-04-06 14:26:00+07'),
+  ( 5,  4, 8, 55000, '2026-04-07 09:02:00+07'),
+  ( 6,  6, 5, 45000, '2026-04-08 15:58:00+07'),
+  ( 7,  7, 9, 35000, '2026-04-09 08:28:00+07'),
+  ( 8,  8, 8, 55000, '2026-04-09 09:58:00+07'),
+  ( 9,  1, 1, 15000, '2026-04-05 09:13:00+07'),
+  (10, 10, 7, 18000, '2026-04-10 07:42:00+07');
+
+SELECT setval('insurance_purchases_id_seq', 10);
+
+
+COMMIT;
+-- ============================================================
+-- END OF SEED DATA
+-- ============================================================

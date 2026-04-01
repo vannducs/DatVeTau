@@ -3,7 +3,6 @@ import { Minus, Plus } from "lucide-react"
 export interface PassengerCount {
   adult: number
   child: number
-  student: number
   elderly: number
 }
 
@@ -14,14 +13,13 @@ interface PassengerDropdownProps {
 }
 
 const passengerTypes: {
-  key: keyof PassengerCount
+  key: keyof Omit<PassengerCount, never>
   label: string
   emoji: string
   min: number
 }[] = [
   { key: "adult", label: "Người lớn", emoji: "👤", min: 1 },
   { key: "child", label: "Trẻ em", emoji: "👶", min: 0 },
-  { key: "student", label: "Sinh viên", emoji: "🎓", min: 0 },
   { key: "elderly", label: "Người cao tuổi", emoji: "👴", min: 0 },
 ]
 
