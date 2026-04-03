@@ -1,35 +1,108 @@
 import "./header.css"
-import { Phone, Languages } from 'lucide-react';
+import { useEffect, useRef, useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { Phone, Languages, User, LogOut } from "lucide-react"
+import { useAuth } from "@/context/AuthContext"
 
-export default function Header(){
-    return (
-        <header className="header">
-            <div className="header-banner">
-                <p>Cam kết hoàn 150% nếu nhà xe không cung cấp dịch vụ vận chuyển (*)</p>
-            </div>
+export default function Header() {
+  const { user, logout, isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
-            <div className="header-container">
-                <div className="header-left">
-                    <div className="logo">DatVeXe</div>
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", onDoc)
+    return () => document.removeEventListener("mousedown", onDoc)
+  }, [menuOpen])
+
+  const handleLogout = () => {
+    setMenuOpen(false)
+    logout()
+    navigate("/")
+  }
+
+  return (
+    <header className="header">
+      <div className="header-banner">
+        <p>Cam kết hoàn 150% nếu nhà xe không cung cấp dịch vụ vận chuyển (*)</p>
+      </div>
+
+      <div className="header-container">
+        <div className="header-left">
+          <Link to="/" className="logo">DatVeXe</Link>
+        </div>
+
+        <nav className="header-nav">
+          <Link to="/">Trang chính</Link>
+          <Link to="/my-orders">Đơn hàng của tôi</Link>
+          <a href="#">Mở bán vé trên DatVeXe</a>
+          <a href="#">Trở thành đối tác</a>
+        </nav>
+
+        <div className="header-right">
+          <button className="btn-icon" aria-label="Ngôn ngữ">
+            <Languages className="icon" />
+          </button>
+          <button className="btn-hotline">
+            <Phone className="icon-phone" />
+            <span className="btn-text">Hotline 24/7</span>
+          </button>
+          {isAuthenticated ? (
+            <div className="user-menu" ref={wrapRef}>
+              <button
+                type="button"
+                className="btn-user"
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                onClick={() => setMenuOpen((o) => !o)}
+              >
+                <User className="icon" />
+                <span>{user?.fullName}</span>
+              </button>
+              {menuOpen && (
+                <div className="user-dropdown" role="menu">
+                  <Link
+                    to="/account"
+                    role="menuitem"
+                    className="user-dropdown-item"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Thông tin tài khoản
+                  </Link>
+                  <Link
+                    to="/my-orders"
+                    role="menuitem"
+                    className="user-dropdown-item"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Đơn hàng của tôi
+                  </Link>
+                  <a href="#" role="menuitem" className="user-dropdown-item" onClick={(e) => e.preventDefault()}>
+                    Trung tâm Hỗ trợ
+                  </a>
+                  <button type="button" role="menuitem" className="user-dropdown-item user-dropdown-item--btn" onClick={handleLogout}>
+                    Đăng xuất
+                  </button>
                 </div>
-
-                <nav className="header-nav">
-                    <a href="#">Đơn hàng của tôi</a>
-                    <a href="#">Mở bán vé trên DatVeXe</a>
-                    <a href="#">Trở thành đối tác</a>
-                </nav>
-
-                <div className="header-right">
-                    <button className="btn-icon" aria-label="Ngôn ngữ">
-                        <Languages className="icon" />
-                    </button>
-                    <button className="btn-hotline">
-                        <Phone className="icon-phone" />
-                        <span className="btn-text">Hotline 24/7</span>
-                    </button>
-                    <button className="btn-login">Đăng nhập</button>
-                </div>
+              )}
+              <button className="btn-logout" type="button" onClick={handleLogout} aria-label="Đăng xuất">
+                <LogOut size={16} />
+              </button>
             </div>
-        </header>
-    )
+          ) : (
+            <>
+              <Link to="/login" className="btn-login">Đăng nhập</Link>
+              <Link to="/register" className="btn-register">Đăng ký</Link>
+            </>
+          )}
+        </div>
+      </div>
+    </header>
+  )
 }

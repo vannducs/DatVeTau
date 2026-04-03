@@ -1,69 +1,87 @@
-import { MapPin, Calendar, Search, Users, ArrowRightLeft } from "lucide-react"
+import { useState, useEffect } from "react";
+import { ArrowRightLeft } from "lucide-react";
+import DatePicker from "./DatePicker";
+import PassengerSelector from "./PassengerSelector";
+import StationSelector from "./StationSelector";
+import type { TrainPassengerCount } from "../../types/passenger";
+import type { LocationDTO } from "../../types/location";
+import { locationApi } from "../../api/location";
+
+const initialPassengers: TrainPassengerCount = {
+  adult: 1,
+  child: 0,
+  elderly: 0,
+  student: 0,
+  union: 0,
+};
 
 export default function FormTrain() {
+  const [trainStations, setTrainStations] = useState<LocationDTO[]>([]);
+  const [departure, setDeparture] = useState<LocationDTO | null>(null);
+  const [destination, setDestination] = useState<LocationDTO | null>(null);
+  const [departureDate, setDepartureDate] = useState("");
+  const [passengerCount, setPassengerCount] = useState<TrainPassengerCount>(initialPassengers);
+
+  useEffect(() => {
+    locationApi.getTrainStations().then((res) => setTrainStations(res.data)).catch(() => {});
+  }, []);
+
+  function handleSwap() {
+    setDeparture(destination);
+    setDestination(departure);
+  }
+
   return (
-    <div className="form-body">
-      {/* Origin & Destination */}
-      <div className="row-grid-2">
-        <div className="field-block">
-          <label>Nơi xuất phát</label>
-          <div className="field-card">
-            <MapPin size={20} className="icon-blue" />
-            <div className="field-content">
-              <div className="field-title">Vinh</div>
-              <div className="field-sub">Ga Vinh</div>
-            </div>
-          </div>
+    <div className="form-body form-body-vexere">
+      <div className="search-card-row">
+        <div className="search-col search-col-station">
+          <StationSelector
+            label="Nơi xuất phát"
+            type="train"
+            role="origin"
+            value={departure}
+            onChange={(item) => setDeparture(item as LocationDTO)}
+            items={trainStations}
+            iconColor="blue"
+            compact
+          />
         </div>
-
-        <div className="field-block">
-          <label>Nơi đến</label>
-          <div className="field-card">
-            <MapPin size={20} className="icon-red" />
-            <div className="field-content">
-              <div className="field-title">Đà Nẵng</div>
-              <div className="field-sub">Ga Đà Nẵng</div>
-            </div>
-            <button type="button" className="swap-btn" aria-label="Đổi chiều">
-              <ArrowRightLeft size={20} />
-            </button>
-          </div>
+        <div className="search-col-swap">
+          <button type="button" className="swap-btn-inline" onClick={handleSwap} aria-label="Đổi chiều">
+            <ArrowRightLeft size={18} />
+          </button>
         </div>
-      </div>
-
-      {/* Date & Search */}
-      <div className="row-grid-3">
-        <div className="field-block">
-          <label>Ngày đi</label>
-          <div className="field-card">
-            <Calendar size={20} className="icon-blue" />
-            <div className="field-title">13, 09/12/2025</div>
-          </div>
+        <div className="search-col search-col-station">
+          <StationSelector
+            label="Nơi đến"
+            type="train"
+            role="destination"
+            value={destination}
+            onChange={(item) => setDestination(item as LocationDTO)}
+            items={trainStations}
+            iconColor="red"
+            compact
+          />
         </div>
-
-        <div className="return-link-wrap">
-          <button type="button" className="return-link">+ Thêm ngày về</button>
+        <div className="search-col-divider" aria-hidden />
+        <div className="search-col search-col-date">
+          <DatePicker value={departureDate} onChange={setDepartureDate} label="Ngày đi" compact />
         </div>
-
-        <button type="button" className="search-btn">
-          <Search size={20} />
-          <span>Tìm kiếm</span>
-        </button>
-      </div>
-
-      {/* Passenger Row */}
-      <div className="passenger-row-figma">
-        <div className="passenger-total">
-          <Users size={20} className="icon-muted" />
-          <span>1 Hành khách</span>
+        <div className="search-col search-col-return">
+          <span className="field-label-mini field-label-spacer"> </span>
+          <button type="button" className="return-link-inline">
+            + Thêm ngày về
+          </button>
         </div>
-        <div className="passenger-detail">
-          <span className="passenger-adult">👤 1 Người lớn</span>
-          <span>👶 0 Trẻ em</span>
-          <span>🎓 0 Sinh viên</span>
-          <span>👴 0 Người cao tuổi</span>
+        <div className="search-col search-col-submit">
+          <span className="field-label-mini field-label-spacer"> </span>
+          <button type="button" className="search-btn search-btn-row">
+            Tìm kiếm
+          </button>
         </div>
       </div>
+
+      <PassengerSelector variant="train" count={passengerCount} onChange={setPassengerCount} />
     </div>
-  )
+  );
 }

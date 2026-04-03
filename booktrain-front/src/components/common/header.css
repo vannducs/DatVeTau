@@ -141,8 +141,120 @@
     .header-banner p {
         font-size: 12px;
     }
-    
+
     .btn-hotline .btn-text {
         display: none;
     }
+}
+
+/* ======= User Menu ======= */
+.logo {
+    text-decoration: none;
+}
+
+.btn-register {
+    background: #FFC107;
+    color: #2F6FED;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 24px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.2s;
+    font-family: inherit;
+    text-decoration: none;
+}
+
+.btn-register:hover {
+    background: #f5c200;
+}
+
+.user-menu {
+    position: relative;
+}
+
+.btn-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 7px 14px;
+    border-radius: 24px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+    transition: background 0.2s;
+}
+
+.btn-user:hover {
+    background: rgba(255,255,255,0.25);
+}
+
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    min-width: 200px;
+    overflow: hidden;
+    animation: dropdownFadeIn 0.15s ease-out;
+    z-index: 100;
+}
+
+@keyframes dropdownFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.user-dropdown-item {
+    display: block;
+    padding: 12px 16px;
+    color: #374151;
+    text-decoration: none;
+    font-size: 14px;
+    transition: background 0.15s;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.user-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.user-dropdown-item:hover {
+    background: #f9fafb;
+    color: #2F6FED;
+}
+
+.user-dropdown-item--btn {
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.user-dropdown-item--btn:hover {
+    color: #dc2626;
+}
+
+.btn-logout {
+    background: none;
+    border: none;
+    color: white;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.btn-logout:hover {
+    background: rgba(255,255,255,0.2);
 }

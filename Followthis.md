@@ -24,7 +24,9 @@ Trước khi thực hiện bất cứ thay đổi nào trong dự án của tôi
 - Đảm bảo code chạy được
 - Không có code thừa hoặc unused
 
-6. Output:
+6. Không được thêm bất cứ folder nào cùng cấp với folder booktrain-back và booktrain-frontfront
+
+7. Output:
 - Chỉ trả về phần code đã chỉnh sửa
 
-77. Nếu có bất kỳ xung đột nào giữa yêu cầu mới và code hiện tại, hãy ưu tiên giữ nguyên code cũ và hỏi lại tôi trước khi thay đổi.
+88. Nếu có bất kỳ xung đột nào giữa yêu cầu mới và code hiện tại, hãy ưu tiên giữ nguyên code cũ và hỏi lại tôi trước khi thay đổi.

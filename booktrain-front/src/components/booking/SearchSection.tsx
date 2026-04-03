@@ -16,9 +16,9 @@ interface Tab {
 
 const tabs: Tab[] = [
   { id: "bus", label: "Xe khách", icon: Bus },
-  { id: "plane", label: "Máy bay", icon: Plane, badge: "HOT" },
-  { id: "train", label: "Tàu hỏa", icon: Train, badge: "20%" },
-  { id: "car", label: "Thuê xe", icon: Car, badge: "HOT" },
+  { id: "plane", label: "Máy bay", icon: Plane, badge: "-30k" },
+  { id: "train", label: "Tàu hỏa", icon: Train, badge: "-25%" },
+  { id: "car", label: "Thuê xe", icon: Car, badge: "Mới" },
 ]
 
 function renderForm(tabId: TabId) {
