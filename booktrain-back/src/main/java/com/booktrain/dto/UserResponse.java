@@ -1,6 +1,7 @@
 package com.booktrain.dto;
 
 import com.booktrain.entity.User;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import lombok.Builder;
 import java.time.LocalDateTime;
@@ -11,7 +12,8 @@ public class UserResponse {
     private Long id;
     private String email;
     private String fullName;
-    private String phone;
+    @JsonProperty("phone")
+    private String phoneNumber;
     private String avatarUrl;
     private LocalDateTime createdAt;
 
@@ -20,7 +22,7 @@ public class UserResponse {
                 .id(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
-                .phone(user.getPhone())
+                .phoneNumber(user.getPhoneNumber())
                 .avatarUrl(user.getAvatarUrl())
                 .createdAt(user.getCreatedAt())
                 .build();

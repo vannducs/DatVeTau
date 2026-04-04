@@ -24,12 +24,11 @@ public class User {
     private String fullName;
 
     @Column(unique = true)
-    private String phone;
+    private String phoneNumber;
 
     private String avatarUrl;
 
-    @Column(nullable = false)
-    private Boolean enabled = true;
+    private String status;
 
     private LocalDateTime createdAt;
 

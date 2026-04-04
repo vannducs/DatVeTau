@@ -20,7 +20,7 @@ public class AuthService {
         if (userRepository.existsByEmail(request.getEmail())) {
             return ApiResponse.error("Email đã được sử dụng");
         }
-        if (request.getPhone() != null && userRepository.existsByPhone(request.getPhone())) {
+        if (request.getPhone() != null && userRepository.existsByPhoneNumber(request.getPhone())) {
             return ApiResponse.error("Số điện thoại đã được sử dụng");
         }
 
@@ -28,8 +28,8 @@ public class AuthService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
-                .phone(request.getPhone())
-                .enabled(true)
+                .phoneNumber(request.getPhone())
+                .status("active")
                 .build();
 
         userRepository.save(user);
