@@ -107,7 +107,7 @@ export default function StationSelector({
             {main ? (
               <>
                 <span className="field-title">{main}</span>
-                {compact && <span className="field-tag-cu">CŨ</span>}
+                {compact && <span className="field-tag-cu"></span>}
               </>
             ) : (
               <span className="placeholder">Chọn {label.toLowerCase()}</span>

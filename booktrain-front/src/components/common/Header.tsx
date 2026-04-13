@@ -1,8 +1,8 @@
 import "./header.css"
 import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Phone, Languages, User, LogOut } from "lucide-react"
-import { useAuth } from "@/context/AuthContext"
+import { Phone, Languages, User } from "lucide-react"
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Header() {
   const { user, logout, isAuthenticated } = useAuth()
@@ -91,9 +91,6 @@ export default function Header() {
                   </button>
                 </div>
               )}
-              <button className="btn-logout" type="button" onClick={handleLogout} aria-label="Đăng xuất">
-                <LogOut size={16} />
-              </button>
             </div>
           ) : (
             <>

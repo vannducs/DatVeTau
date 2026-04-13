@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, Train } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import "./auth.css";
 
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -18,7 +18,7 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
+      await login(identifier, password);
       navigate("/");
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || "Đăng nhập thất bại");
@@ -35,7 +35,7 @@ export default function LoginPage() {
           <span>DatVeXe</span>
         </div>
         <h2 className="auth-title">Đăng nhập</h2>
-        <p className="auth-subtitle">Chào mừng bạn quay lại!</p>
+        <p className="auth-subtitle">Chào mừng bạn đến với DatVeXe!</p>
 
         {error && <div className="auth-error">{error}</div>}
 
@@ -46,9 +46,9 @@ export default function LoginPage() {
               <Mail size={18} className="input-icon" />
               <input
                 type="email"
-                placeholder="Nhập email của bạn"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Nhập email hoặc số điện thoại"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 required
               />
             </div>

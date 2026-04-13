@@ -1,89 +1,98 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import {
+    createContext, useContext, useState,
+    useEffect, useCallback, type ReactNode
+} from "react";
 import { authApi } from "../api/auth";
 
+
 interface User {
-  id: number;
-  email: string;
-  fullName: string;
-  phone?: string;
-  avatarUrl?: string;
+    id: number;
+    email: string;
+    fullName: string;
+    phoneNumber?: string;
+    avatarUrl?: string;
+    accountType?: string;
+    status?: string;
 }
 
 interface AuthContextType {
-  user: User | null;
-  token: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: { email: string; password: string; fullName: string; phone?: string }) => Promise<void>;
-  logout: () => void;
+    user: User | null;
+    token: string | null;
+    isAuthenticated: boolean;
+    isLoading: boolean;
+    login: (identifier: string, password: string) => Promise<void>;
+    register: (data: {
+        email: string;
+        password: string;
+        fullName: string;
+        phoneNumber?: string;
+    }) => Promise<void>;
+    logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
-  const [isLoading, setIsLoading] = useState(true);
+    const [user, setUser] = useState<User | null>(null);
+    const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
+    const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (token) {
-      authApi.getMe()
-        .then((res) => {
-          if (res.data.success) {
-            setUser(res.data.data);
-          } else {
-            logout();
-          }
-        })
-        .catch(() => logout())
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
+    const logout = useCallback(() => {
+        localStorage.removeItem("token");
+        setToken(null);
+        setUser(null);
+    }, []);
+
+    useEffect(() => {
+        if (!token) {
+            setIsLoading(false);
+            return;
+        }
+        authApi.getMe()
+            .then((res) => {
+                // Backend trả thẳng object User, không có wrapper success/data
+                if (res.data.id) setUser(res.data);
+                else logout();
+            })
+            .catch(() => logout())
+            .finally(() => setIsLoading(false));
+    }, [token, logout]);
+
+    async function login(identifier: string, password: string) {
+        const res = await authApi.login(identifier, password);
+        console.log("Response từ backend:", res.data); 
+        if (!res.data.token) throw new Error(res.data.message || "Đăng nhập thất bại!");
+        const { token: t, ...userData } = res.data;
+        console.log("userData set vào user:", userData); 
+        localStorage.setItem("token", t);
+        setToken(t);
+        setUser(userData);
     }
-  }, [token]);
 
-  async function login(email: string, password: string) {
-    const res = await authApi.login(email, password);
-    if (!res.data.success) throw new Error(res.data.message);
-    const { token: t, user: u } = res.data.data;
-    localStorage.setItem("token", t);
-    setToken(t);
-    setUser(u);
-  }
+    async function register(data: {
+        email: string;
+        password: string;
+        fullName: string;
+        phoneNumber?: string;
+    }) {
+        const res = await authApi.register(data);
+        if (!res.data.success) throw new Error(res.data.message);
+        // Đăng ký xong → tự động login luôn
+        await login(data.email, data.password);
+    }
 
-  async function register(data: { email: string; password: string; fullName: string; phone?: string }) {
-    const res = await authApi.register(data);
-    if (!res.data.success) throw new Error(res.data.message);
-    const { token: t, user: u } = res.data.data;
-    localStorage.setItem("token", t);
-    setToken(t);
-    setUser(u);
-  }
-
-  function logout() {
-    localStorage.removeItem("token");
-    setToken(null);
-    setUser(null);
-  }
-
-  return (
-    <AuthContext.Provider value={{
-      user,
-      token,
-      isAuthenticated: !!user,
-      isLoading,
-      login,
-      register,
-      logout,
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+    return (
+        <AuthContext.Provider value={{
+            user,
+            token,
+            isAuthenticated: !!user,
+            isLoading,
+            login,
+            register,
+            logout,
+        }}>
+            {children}
+        </AuthContext.Provider>
+    );
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
-}

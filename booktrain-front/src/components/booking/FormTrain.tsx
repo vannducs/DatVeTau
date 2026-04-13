@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowRightLeft } from "lucide-react";
 import DatePicker from "./DatePicker";
 import PassengerSelector from "./PassengerSelector";
@@ -15,20 +16,50 @@ const initialPassengers: TrainPassengerCount = {
   union: 0,
 };
 
-export default function FormTrain() {
+// 👈 Thêm interface props
+interface FormTrainProps {
+  initialDeparture?: LocationDTO | null;
+  initialDestination?: LocationDTO | null;
+  initialDate?: string;
+}
+
+export default function FormTrain({ 
+  initialDeparture,    // 👈 nhận props
+  initialDestination,
+  initialDate,
+}: FormTrainProps) {
+  const navigate = useNavigate();
   const [trainStations, setTrainStations] = useState<LocationDTO[]>([]);
-  const [departure, setDeparture] = useState<LocationDTO | null>(null);
-  const [destination, setDestination] = useState<LocationDTO | null>(null);
-  const [departureDate, setDepartureDate] = useState("");
+  const [departure, setDeparture] = useState<LocationDTO | null>(initialDeparture || null);       // 👈 dùng props
+  const [destination, setDestination] = useState<LocationDTO | null>(initialDestination || null); // 👈 dùng props
+  const [departureDate, setDepartureDate] = useState(initialDate || "");                          // 👈 dùng props
   const [passengerCount, setPassengerCount] = useState<TrainPassengerCount>(initialPassengers);
 
   useEffect(() => {
     locationApi.getTrainStations().then((res) => setTrainStations(res.data)).catch(() => {});
   }, []);
 
+  // Cập nhật khi props thay đổi (khi SearchResultPage load xong dữ liệu)
+  useEffect(() => {
+    if (initialDeparture) setDeparture(initialDeparture);
+  }, [initialDeparture]);
+
+  useEffect(() => {
+    if (initialDestination) setDestination(initialDestination);
+  }, [initialDestination]);
+
+  useEffect(() => {
+    if (initialDate) setDepartureDate(initialDate);
+  }, [initialDate]);
+
   function handleSwap() {
     setDeparture(destination);
     setDestination(departure);
+  }
+
+  function handleSearch() {
+    if (!departure || !destination || !departureDate) return;
+    navigate(`/trains/search?originId=${departure.id}&destinationId=${destination.id}&date=${departureDate}`);
   }
 
   return (
@@ -75,12 +106,11 @@ export default function FormTrain() {
         </div>
         <div className="search-col search-col-submit">
           <span className="field-label-mini field-label-spacer"> </span>
-          <button type="button" className="search-btn search-btn-row">
+          <button type="button" className="search-btn search-btn-row" onClick={handleSearch}>
             Tìm kiếm
           </button>
         </div>
       </div>
-
       <PassengerSelector variant="train" count={passengerCount} onChange={setPassengerCount} />
     </div>
   );
