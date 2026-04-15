@@ -1,3 +1,5 @@
+Followthis.md
+Script_Database.txt
 # ===================
 # Common / OS Files
 # ===================
@@ -49,7 +51,10 @@ temp/
 # ===================
 # ===== BACKEND =====
 # ===================
-
+booktrain-back/src/main/resources/application.properties
+booktrain-back/src/main/resources/application*.properties
+booktrain-back/src/main/resources/application*.yml
+booktrain-front/.env
 booktrain-back/target/
 booktrain-back/*.log
 
