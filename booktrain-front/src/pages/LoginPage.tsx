@@ -19,10 +19,16 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(identifier, password);
-      navigate("/");
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || "Đăng nhập thất bại");
-    } finally {
+      const redirectUrl = sessionStorage.getItem("redirectAfterLogin");
+      if (redirectUrl){
+        sessionStorage.removeItem("redirectAfterLogin");
+        navigate(redirectUrl);
+      }else{
+        navigate("/");
+      }
+    } catch {
+      setError("Đăng nhập thất bại!");
+    }finally{
       setLoading(false);
     }
   }

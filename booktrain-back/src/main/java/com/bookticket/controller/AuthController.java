@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -49,6 +50,7 @@ public class AuthController {
                 .id(user.getId())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
                 .accountType(user.getAccountType())
                 .status(user.getStatus())
                 .avatarUrl(user.getAvatarUrl())
@@ -121,7 +123,10 @@ public class AuthController {
                 .id(user.getId())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
                 .accountType(user.getAccountType())
+                .dateOfBirth(user.getDateOfBirth() != null
+                        ? user.getDateOfBirth().toString() : null)
                 .status(user.getStatus())
                 .avatarUrl(user.getAvatarUrl())
                 .build());

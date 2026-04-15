@@ -8,4 +8,7 @@ export const tripApi = {
 
     getSeats: (tripId: number) =>
         api.get(`/trips/${tripId}/seats`),
+
+    getById: (tripId: number) =>
+        api.get(`/trips/${tripId}`),
 };

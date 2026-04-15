@@ -9,6 +9,8 @@ public class AuthResponse {
     private String fullName;
     private String email;
     private String accountType;
+    private String phoneNumber;
+    private String dateOfBirth;
     private String status;
     private String avatarUrl;
     private String message;

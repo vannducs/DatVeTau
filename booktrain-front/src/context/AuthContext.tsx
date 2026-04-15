@@ -10,6 +10,7 @@ interface User {
     email: string;
     fullName: string;
     phoneNumber?: string;
+    dateOfBirth?: string; 
     avatarUrl?: string;
     accountType?: string;
     status?: string;

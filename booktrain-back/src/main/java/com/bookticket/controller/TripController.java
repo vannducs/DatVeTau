@@ -88,4 +88,13 @@ public class TripController {
 
         return ResponseEntity.ok(groupedByCarriage);
     }
+    @GetMapping("/{tripId}")
+    public ResponseEntity<?> getTripById(@PathVariable Integer tripId) {
+        return tripRepository.findById(tripId)
+                .map(trip -> {
+                    TripResultDTO dto = TripResultDTO.from(trip);
+                    return ResponseEntity.ok(dto);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
 }

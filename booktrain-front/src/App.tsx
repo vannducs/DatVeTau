@@ -6,25 +6,43 @@ import RegisterPage from "./pages/RegisterPage"
 import AccountPage from "./pages/AccountPage"
 import MyOrdersPage from "./pages/MyOrdersPage"
 import SearchResultPage from "./pages/SearchResultPage"
-import AdminRoute from "./components/common/AdminRoute"
 import SeatSelectionPage from "./pages/SeatSelectionPage"
+import PassengerInfoPage from "./pages/PassengerInfoPage"
+import AdminRoute from "./components/common/AdminRoute"
+import PrivateRoute from "./components/common/PrivateRoute"
+import PaymentPage from "./pages/PaymentPage"
 
 function App() {
   return (
-    <BrowserRouter>        
-      <AuthProvider> 
+    <BrowserRouter>
+      <AuthProvider>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/account" element={<AccountPage />} />
-          <Route path="/my-orders" element={<MyOrdersPage />} />
           <Route path="/trains/search" element={<SearchResultPage />} />
-          <Route path="/trains/booking/:tripId" element={<SeatSelectionPage />} />
+
+          <Route path="/account" element={
+            <PrivateRoute><AccountPage /></PrivateRoute>
+          } />
+          <Route path="/my-orders" element={
+            <PrivateRoute><MyOrdersPage /></PrivateRoute>
+          } />
+          <Route path="/trains/booking/:tripId" element={ 
+            <PrivateRoute><SeatSelectionPage /></PrivateRoute>
+          } />
+          <Route path="/trains/passenger-info" element={ 
+            <PrivateRoute><PassengerInfoPage /></PrivateRoute>
+          } />
+          <Route path="/trains/payment" element={
+              <PrivateRoute><PaymentPage /></PrivateRoute>
+          } />
+
+  
           <Route path="/admin/*" element={
-              <AdminRoute>
-                  <div>Admin Dashboard (sẽ làm ở bước 2)</div>
-              </AdminRoute>
+            <AdminRoute>
+              <div>Admin Dashboard (sẽ làm ở bước 2)</div>
+            </AdminRoute>
           } />
         </Routes>
       </AuthProvider>

@@ -14,7 +14,7 @@ export default function AccountPage() {
     const [form, setForm] = useState({
         fullName: user?.fullName || "",
         phoneNumber: user?.phoneNumber || "",
-        dateOfBirth: "",
+        dateOfBirth: user?.dateOfBirth || "",
         gender: "male",
     });
 

@@ -1,11 +1,10 @@
 import "./HomeFooter.css"
 
 const footerLinks = {
-  "Về Vexere": [
-    "Giới thiệu Vexere",
+  "Về DatVeXe": [
+    "Giới thiệu trang web DatVeXe",
     "Tin tức",
     "Tuyển dụng",
-    "Blog",
   ],
   "Hỗ trợ": [
     "Trung tâm hỗ trợ",
@@ -14,7 +13,7 @@ const footerLinks = {
     "Chính sách bảo mật",
   ],
   "Dành cho đối tác": [
-    "Mở bán vé trên Vexere",
+    "Mở bán vé trên DatVeXe",
     "Phần mềm quản lý nhà xe",
     "Phần mềm quản lý hàng hoá",
     "Đăng ký treo banner",
@@ -68,8 +67,8 @@ export default function HomeFooter() {
 
         <div className="footer-bottom">
           <p>© 2026 DatVeXe. Tất cả quyền được bảo lưu.</p>
-          <p>Địa chỉ: Tầng 10, Tòa nhà Vexere Tower, 70 Bạch Đằng, Quận 3, TP.HCM</p>
-          <p>Hotline: 1900 1234 | Email: support@datvexe.com</p>
+          <p>Địa chỉ: Đại học Vinh, Lê Duẩn, Trường Vinh, Nghệ An</p>
+          <p>Hotline: 0362369188 | Email: nguyenvanducqlfptshop@gmail.com</p>
         </div>
       </div>
     </footer>

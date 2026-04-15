@@ -5,22 +5,23 @@
     margin-bottom: 12px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 0;
     transition: box-shadow 0.2s;
     font-family: 'Google Sans Flex', system-ui, sans-serif;
+    overflow: hidden;
 }
 
 .trip-card:hover {
     box-shadow: 0 4px 16px rgba(0,0,0,0.12);
 }
 
-/* ===== Phần trái ===== */
+/* ===== Phần trên: giờ đi + tên tàu ===== */
 .trip-card-left {
-    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    padding-bottom: 16px;
 }
 
 .trip-times {
@@ -33,7 +34,8 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    min-width: 90px;
+    min-width: 80px;
+    flex-shrink: 0;
 }
 
 .trip-time-block--right {
@@ -53,7 +55,6 @@
     margin-top: 4px;
 }
 
-/* Track giữa */
 .trip-middle {
     flex: 1;
     display: flex;
@@ -98,16 +99,13 @@
     white-space: nowrap;
 }
 
-/* Tên tàu */
 .trip-train-info {
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
-.train-icon {
-    font-size: 16px;
-}
+.train-icon { font-size: 16px; }
 
 .train-code {
     font-size: 13px;
@@ -123,19 +121,34 @@
     color: #9ca3af;
 }
 
-/* ===== Phần phải ===== */
+/* ===== Phần dưới: giá + nút đặt vé ===== */
 .trip-card-right {
     display: flex;
-    align-items: center;
-    gap: 24px;
-    border-left: 1px solid #f3f4f6;
-    padding-left: 24px;
-    margin-left: 24px;
+    flex-direction: column;
+    gap: 12px;
+    border-top: 1px solid #f3f4f6;
+    padding-top: 16px;
+}
+
+.trip-prices-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: #e5e7eb transparent;
+    padding-bottom: 4px;
+}
+
+.trip-prices-scroll::-webkit-scrollbar { height: 4px; }
+.trip-prices-scroll::-webkit-scrollbar-track { background: transparent; }
+.trip-prices-scroll::-webkit-scrollbar-thumb {
+    background: #e5e7eb;
+    border-radius: 2px;
 }
 
 .trip-prices {
     display: flex;
-    gap: 12px;
+    gap: 10px;
+    min-width: max-content;
 }
 
 .price-item {
@@ -148,7 +161,12 @@
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     gap: 2px;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: border-color 0.15s;
 }
+
+.price-item:hover { border-color: #2F6FED; }
 
 .price-type {
     font-size: 13px;
@@ -167,11 +185,11 @@
     color: #6b7280;
 }
 
-/* Nút đặt vé */
 .btn-book-trip {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     background: #FFC107;
     color: #111827;
     border: none;
@@ -180,36 +198,16 @@
     font-size: 15px;
     font-weight: 700;
     cursor: pointer;
-    white-space: nowrap;
     transition: background 0.2s;
     font-family: inherit;
-    min-width: 100px;
-    gap: 4px;
+    width: 100%;
+    gap: 2px;
 }
 
-.btn-book-trip:hover {
-    background: #f5b800;
-}
+.btn-book-trip:hover { background: #f5b800; }
 
 .btn-book-hint {
     font-size: 11px;
     color: #ef4444;
     font-weight: 600;
-}
-
-@media (max-width: 768px) {
-    .trip-card {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .trip-card-right {
-        border-left: none;
-        border-top: 1px solid #f3f4f6;
-        padding-left: 0;
-        margin-left: 0;
-        padding-top: 16px;
-        margin-top: 16px;
-        justify-content: space-between;
-    }
 }

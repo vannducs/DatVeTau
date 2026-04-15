@@ -9,6 +9,8 @@ import TripCard from "../components/search/TripCard";
 import SearchBox from "../components/booking/SearchBox"; // 👈 thêm import
 import "./searchResult.css";
 import "../components/booking/searchSection.css";
+import HomeFooter from "../components/home/HomeFooter"
+
 
 export default function SearchResultPage() {
     const [params] = useSearchParams();
@@ -170,6 +172,7 @@ export default function SearchResultPage() {
                     </div>
                 </div>
             </div>
+            <HomeFooter/>
         </>
     );
 }
