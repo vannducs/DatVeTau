@@ -40,10 +40,7 @@ public class PaymentController {
         }
 
         String paymentUrl = vnPayService.createPaymentUrl(
-                req.amount(),
-                req.orderCode(),
-                req.orderInfo(),
-                ipAddress
+                req.amount(), req.orderCode(), req.orderInfo(), ipAddress
         );
 
         Map<String, String> response = new HashMap<>();
@@ -52,17 +49,50 @@ public class PaymentController {
     }
 
     /**
-     * VNPay redirect về đây sau khi thanh toán
-     * GET /api/payment/vnpay/return  (returnUrl trong application.properties)
-     *
-     * Flow: VNPay → backend verify + confirmPayment → redirect frontend
+     * Frontend gọi để verify chữ ký VNPay sau khi redirect về
+     * GET /api/payment/vnpay/verify?vnp_Amount=...&vnp_ResponseCode=...
+     */
+    @GetMapping("/vnpay/verify")
+    public ResponseEntity<Map<String, Object>> verifyPayment(
+            @RequestParam Map<String, String> params) {
+
+        Map<String, Object> result = new HashMap<>();
+        boolean valid = vnPayService.verifyReturn(params);
+
+        if (!valid) {
+            result.put("success", false);
+            result.put("message", "Chữ ký không hợp lệ");
+            return ResponseEntity.ok(result);
+        }
+
+        String responseCode  = params.get("vnp_ResponseCode");
+        String txnRef        = params.get("vnp_TxnRef");
+        String rawAmount     = params.getOrDefault("vnp_Amount", "0");
+        String transactionNo = params.get("vnp_TransactionNo");
+        boolean paid         = "00".equals(responseCode);
+
+        result.put("success",       paid);
+        result.put("orderCode",     txnRef);
+        result.put("amount",        Long.parseLong(rawAmount) / 100);
+        result.put("transactionNo", transactionNo);
+        result.put("responseCode",  responseCode);
+        result.put("message", paid
+                ? "Thanh toán thành công"
+                : "Thanh toán thất bại (mã: " + responseCode + ")");
+
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Backend redirect approach (dự phòng — không dùng khi VNPay redirect thẳng về frontend)
+     * GET /api/payment/vnpay/return
      */
     @GetMapping("/vnpay/return")
     public void returnPayment(
             @RequestParam Map<String, String> params,
             HttpServletResponse response) throws IOException {
 
-        String frontendUrl = "http://localhost:5173/trains/payment-return";
+        String frontendUrl  = "http://datvetau-demo.com:5173/payment/vnpay-return";
         boolean valid        = vnPayService.verifyReturn(params);
         String responseCode  = params.getOrDefault("vnp_ResponseCode", "99");
         String txnRef        = params.getOrDefault("vnp_TxnRef", "");
@@ -73,8 +103,7 @@ public class PaymentController {
             long amount = Long.parseLong(rawAmount) / 100;
             try {
                 bookingService.confirmPayment(new ConfirmPaymentRequest(
-                        txnRef, transactionNo, amount, responseCode
-                ));
+                        txnRef, transactionNo, amount, responseCode));
             } catch (Exception e) {
                 System.err.println("[VNPay return] confirmPayment error: " + e.getMessage());
             }

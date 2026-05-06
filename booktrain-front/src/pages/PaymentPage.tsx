@@ -184,14 +184,19 @@ export default function PaymentPage() {
 
                             {tripInfo && (
                                 <div className="pay-trip-train">
-                                    🚂 {tripInfo.trainCode} • {tripInfo.trainName}
+                                    <span className="material-icons-round" style={{ fontSize: 15, color: "#2F6FED", verticalAlign: "middle", marginRight: 4 }}>train</span>
+                                    {tripInfo.trainCode} • {tripInfo.trainName}
                                 </div>
                             )}
 
                             <div className="pay-trip-meta">
-                                <span>👥 {bookingData.passengers.length} Người lớn</span>
-                                <span>
-                                    🎫 {bookingData.passengers.map(p => `Ghế ${p.seatNumber}`).join(", ")}
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                    <span className="material-icons-round" style={{ fontSize: 16 }}>group</span>
+                                    {bookingData.passengers.length} Người lớn
+                                </span>
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                    <span className="material-icons-round" style={{ fontSize: 16 }}>confirmation_number</span>
+                                    {bookingData.passengers.map(p => `Ghế ${p.seatNumber}`).join(", ")}
                                 </span>
                             </div>
                         </div>
@@ -225,7 +230,17 @@ export default function PaymentPage() {
                             disabled={paying}
                             style={{ opacity: paying ? 0.7 : 1, cursor: paying ? "not-allowed" : "pointer" }}
                         >
-                            {paying ? "⏳ Đang xử lý..." : "🔒 Thanh toán qua VNPay"}
+                            {paying ? (
+                            <>
+                                <span className="material-icons-round" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}>hourglass_empty</span>
+                                Đang xử lý...
+                            </>
+                        ) : (
+                            <>
+                                <span className="material-icons-round" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}>lock</span>
+                                Thanh toán qua VNPay
+                            </>
+                        )}
                         </button>
                         <p className="pay-policy">
                             Bằng việc thanh toán, bạn đồng ý với{" "}

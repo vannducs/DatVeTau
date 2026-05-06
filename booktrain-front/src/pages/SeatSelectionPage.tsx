@@ -178,7 +178,10 @@ export default function SeatSelectionPage() {
     if (loading) return (
         <>
             <Header />
-            <div className="ss-loading">🔍 Đang tải sơ đồ ghế...</div>
+            <div className="ss-loading" style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+                <span className="material-icons-round" style={{ fontSize: 24, color: "#2F6FED" }}>event_seat</span>
+                Đang tải sơ đồ ghế...
+            </div>
         </>
     );
 
@@ -273,7 +276,9 @@ export default function SeatSelectionPage() {
                                 <span key={s.id} className="ss-footer-tag">
                                     Ghế {s.seatNumber}
                                     <button className="ss-footer-tag-remove"
-                                        onClick={() => handleSelectSeat(s)}>✕</button>
+                                        onClick={() => handleSelectSeat(s)}>
+                                        <span className="material-icons-round" style={{ fontSize: 12 }}>close</span>
+                                    </button>
                                 </span>
                             ))
                         )}

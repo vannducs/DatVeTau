@@ -6,6 +6,7 @@ import LoginPage         from "./pages/LoginPage";
 import RegisterPage      from "./pages/RegisterPage";
 import AccountPage       from "./pages/AccountPage";
 import MyOrdersPage      from "./pages/MyOrdersPage";
+import OrderDetailPage   from "./pages/OrderDetailPage";
 import SearchResultPage  from "./pages/SearchResultPage";
 import SeatSelectionPage from "./pages/SeatSelectionPage";
 import PassengerInfoPage from "./pages/PassengerInfoPage";
@@ -35,6 +36,7 @@ function App() {
           <Route path="/register"                element={<RegisterPage />} />
           <Route path="/trains/search"           element={<SearchResultPage />} />
           <Route path="/trains/payment-return"   element={<PaymentReturnPage />} />
+          <Route path="/payment/vnpay-return"    element={<PaymentReturnPage />} />
 
           {/* ── Authenticated user routes ──────────────────────────── */}
           <Route path="/account" element={
@@ -42,6 +44,9 @@ function App() {
           } />
           <Route path="/my-orders" element={
             <PrivateRoute><MyOrdersPage /></PrivateRoute>
+          } />
+          <Route path="/my-orders/:orderCode" element={
+            <PrivateRoute><OrderDetailPage /></PrivateRoute>
           } />
           <Route path="/trains/booking/:tripId" element={
             <PrivateRoute><SeatSelectionPage /></PrivateRoute>

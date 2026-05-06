@@ -27,9 +27,9 @@ const footerLinks = {
 }
 
 const socialLinks = [
-  { name: "Facebook", icon: "📘" },
-  { name: "YouTube", icon: "📺" },
-  { name: "Instagram", icon: "📷" },
+  { name: "Facebook",  materialIcon: "people" },
+  { name: "YouTube",   materialIcon: "play_circle" },
+  { name: "Instagram", materialIcon: "photo_camera" },
 ]
 
 export default function HomeFooter() {

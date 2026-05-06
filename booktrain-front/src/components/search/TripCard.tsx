@@ -63,7 +63,7 @@ export default function TripCard({ trip }: TripCardProps) {
 
                     {/* Tên tàu */}
                     <div className="trip-train-info">
-                        <span className="train-icon">🚂</span>
+                        <span className="material-icons-round" style={{ fontSize: 16, color: "#2F6FED", verticalAlign: "middle" }}>train</span>
                         <span className="train-code">{trip.trainCode}</span>
                         {trip.trainName && (
                             <span className="train-name">{trip.trainName}</span>

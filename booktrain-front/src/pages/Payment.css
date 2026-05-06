@@ -519,3 +519,8 @@
     .pay-countdown span:first-child { display: none; }
     .pay-trip-route { flex-wrap: wrap; justify-content: center; }
 }
+@media print {
+    .no-print { display: none !important; }
+    .pay-header { box-shadow: none; border-bottom: 1px solid #eee; }
+    .pay-page { padding: 0; }
+}

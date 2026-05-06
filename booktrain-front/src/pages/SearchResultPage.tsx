@@ -152,7 +152,10 @@ export default function SearchResultPage() {
 
                         {/* Kết quả */}
                         {loading ? (
-                            <div className="result-status">🔍 Đang tìm kiếm chuyến tàu...</div>
+                            <div className="result-status" style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+                                <span className="material-icons-round" style={{ fontSize: 22, color: "#2F6FED" }}>manage_search</span>
+                                Đang tìm kiếm chuyến tàu...
+                            </div>
                         ) : sorted.length === 0 ? (
                             <div className="result-status">
                                  Không tìm thấy chuyến tàu nào!

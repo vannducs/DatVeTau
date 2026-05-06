@@ -125,7 +125,10 @@ export default function PassengerInfoPage() {
     if (loading) return (
         <>
             <Header />
-            <div className="pi-loading">🔍 Đang tải thông tin...</div>
+            <div className="pi-loading" style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+                <span className="material-icons-round" style={{ fontSize: 24, color: "#2F6FED" }}>manage_search</span>
+                Đang tải thông tin...
+            </div>
         </>
     );
 
@@ -136,7 +139,9 @@ export default function PassengerInfoPage() {
             {/* Breadcrumb steps */}
             <div className="pi-steps">
                 <div className="pi-steps-inner">
-                    <span className="pi-step pi-step--done">✓ Chọn ghế</span>
+                    <span className="pi-step pi-step--done">
+                        <span className="material-icons-round" style={{ fontSize: 14, verticalAlign: "middle" }}>check</span> Chọn ghế
+                    </span>
                     <span className="pi-step-arrow">──────</span>
                     <span className="pi-step pi-step--active">2 Nhập thông tin</span>
                     <span className="pi-step-arrow">──────</span>
@@ -164,7 +169,8 @@ export default function PassengerInfoPage() {
                                     <span className="pi-trip-station">{trip.destinationName}</span>
                                 </div>
                                 <div className="pi-trip-train">
-                                    🚂 {trip.trainCode} • {trip.trainName}
+                                    <span className="material-icons-round" style={{ fontSize: 15, color: "#2F6FED", verticalAlign: "middle", marginRight: 4 }}>train</span>
+                                    {trip.trainCode} • {trip.trainName}
                                 </div>
                             </div>
                         )}
