@@ -1,0 +1,30 @@
+package com.bookticket.dto;
+
+import java.util.List;
+
+public record CreateBookingRequest(
+        Long tripId,
+        List<PassengerDto> passengers,
+        ContactDto contact,
+        Long totalPrice,
+        Long serviceFee,
+        Long confirmedAt
+) {
+    public record PassengerDto(
+            Long seatId,
+            String seatNumber,
+            String carriageType,
+            Integer carriageNumber,
+            Long ticketPrice,
+            String passengerName,
+            String idNumber,
+            String phoneNumber,
+            String dateOfBirth
+    ) {}
+
+    public record ContactDto(
+            String name,
+            String phone,
+            String email
+    ) {}
+}

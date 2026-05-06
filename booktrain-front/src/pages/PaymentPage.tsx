@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import { tripApi } from "../api/trip";
 import type { TripResult } from "../types/trip";
 import "./payment.css";
@@ -24,45 +25,6 @@ interface BookingData {
     confirmedAt: number;
 }
 
-const PAYMENT_METHODS = [
-    {
-        id: "credit_card",
-        label: "Thẻ tín dụng/Thẻ ghi nợ",
-        desc: "Visa, MasterCard, JCB",
-        icon: "/images/payment/credit-card.png",
-    },
-    {
-        id: "bank_transfer",
-        label: "Thẻ ATM nội địa/Internet Banking",
-        desc: "Tài khoản phải có đăng ký Internet banking",
-        icon: "/images/payment/atm.png",
-    },
-    {
-        id: "zalopay",
-        label: "Ví ZaloPay",
-        desc: "Điện thoại của bạn phải được cài đặt ứng dụng ZaloPay",
-        icon: "/images/payment/zalopay.png",
-    },
-    {
-        id: "momo",
-        label: "Ví MoMo",
-        desc: "Điện thoại của bạn phải được cài đặt ứng dụng MoMo",
-        icon: "/images/payment/momo.png",
-    },
-    {
-        id: "shopee_pay",
-        label: "Ví ShopeePay",
-        desc: "Thanh toán dễ dàng chỉ với 3 click với ứng dụng ShopeePay",
-        icon: "/images/payment/shopeepay.png",
-    },
-    {
-        id: "vexere_wallet",
-        label: "Ví VNPAY-QR",
-        desc: "Đảm bảo rằng bạn đã cài đặt ứng dụng VNPAY-QR",
-        icon: "/images/payment/vnpay.png",
-    },
-];
-
 const CARRIAGE_LABEL: Record<string, string> = {
     hard_seat: "Ngồi cứng",
     soft_seat: "Ngồi mềm",
@@ -77,9 +39,8 @@ export default function PaymentPage() {
     const navigate = useNavigate();
     const [bookingData, setBookingData] = useState<BookingData | null>(null);
     const [tripInfo, setTripInfo] = useState<TripResult | null>(null);
-    const [selectedMethod, setSelectedMethod] = useState("");
     const [timeLeft, setTimeLeft] = useState(TOTAL_SECONDS);
-    const [showConfirm, setShowConfirm] = useState(false);
+    const [paying, setPaying] = useState(false);
     const [error, setError] = useState("");
 
     useEffect(() => {
@@ -114,18 +75,61 @@ export default function PaymentPage() {
         return `${m}:${s}`;
     }
 
-    function handlePayment() {
-        if (!selectedMethod) {
-            setError("Vui lòng chọn phương thức thanh toán!");
+    async function handlePayment() {
+        const token = localStorage.getItem("token");
+        console.log("Sending token:", token);
+        if (!token) {
+            setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
             return;
         }
         setError("");
-        setShowConfirm(true);
-    }
+        setPaying(true);
+        try {
+            // Bước 1: Tạo order trong DB
+            const orderRes = await axios.post(
+                "http://localhost:8080/api/booking/create",
+                {
+                    tripId:     bookingData!.tripId,
+                    passengers: bookingData!.passengers,
+                    contact:    bookingData!.contact,
+                    totalPrice: bookingData!.totalPrice,
+                    serviceFee: 15000,
+                },
+                {
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+            const orderCode = orderRes.data.orderCode;
 
-    function handlePaymentSuccess() {
-        sessionStorage.removeItem("bookingData");
-        navigate("/trains/order-success");
+            // Bước 2: Tạo URL VNPay sandbox
+            const paymentRes = await axios.post(
+                "http://localhost:8080/api/payment/vnpay/create",
+                {
+                    amount:    totalWithFee,
+                    orderCode: orderCode,
+                    orderInfo: `Thanh toan ve tau ${orderCode}`,
+                }
+            );
+
+            // Bước 3: Redirect sang VNPay sandbox
+            window.location.href = paymentRes.data.paymentUrl;
+
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
+            if (axiosErr.response?.status === 401) {
+                localStorage.removeItem("token");
+                navigate("/login");
+                return;
+            }
+            setError(
+                axiosErr.response?.data?.message ||
+                "Không thể tạo yêu cầu thanh toán. Vui lòng thử lại."
+            );
+            setPaying(false);
+        }
     }
 
     if (!bookingData) return null;
@@ -155,28 +159,28 @@ export default function PaymentPage() {
                     {/* Cột trái */}
                     <div className="pay-left">
 
-                        {/* Thông tin chuyến — giống PassengerInfoPage */}
+                        {/* Thông tin chuyến */}
                         <div className="pay-trip-card">
                             <div className="pay-trip-badge">MỘT CHIỀU</div>
 
                             {tripInfo && (
-                            
-                            <div className="pay-trip-route" style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-                                <span className="pay-trip-station">{tripInfo.originName}</span>
+                                <div className="pay-trip-route" style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
+                                    <span className="pay-trip-station">{tripInfo.originName}</span>
 
-                                <div className="pay-trip-middle" style={{ display: "flex", flexDirection: "row", alignItems: "center", flex: 1, justifyContent: "center" }}>
-                                    <span className="pay-trip-time">{tripInfo.departureTime}</span>
-                                    <div className="pay-trip-center" style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "0 12px" }}>
-                                        <span className="pay-trip-duration">{tripInfo.duration}</span>
-                                        {tripInfo.nextDay && (
-                                            <span className="pay-next-day">+1 ngày</span>
-                                        )}
+                                    <div className="pay-trip-middle" style={{ display: "flex", flexDirection: "row", alignItems: "center", flex: 1, justifyContent: "center" }}>
+                                        <span className="pay-trip-time">{tripInfo.departureTime}</span>
+                                        <div className="pay-trip-center" style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "0 12px" }}>
+                                            <span className="pay-trip-duration">{tripInfo.duration}</span>
+                                            {tripInfo.nextDay && (
+                                                <span className="pay-next-day">+1 ngày</span>
+                                            )}
+                                        </div>
+                                        <span className="pay-trip-time">{tripInfo.arrivalTime}</span>
                                     </div>
-                                    <span className="pay-trip-time">{tripInfo.arrivalTime}</span>
-                                </div>
 
-                                <span className="pay-trip-station">{tripInfo.destinationName}</span>
-                            </div>                            )}
+                                    <span className="pay-trip-station">{tripInfo.destinationName}</span>
+                                </div>
+                            )}
 
                             {tripInfo && (
                                 <div className="pay-trip-train">
@@ -192,49 +196,36 @@ export default function PaymentPage() {
                             </div>
                         </div>
 
-                        {/* Phương thức thanh toán */}
+                        {/* VNPay info card */}
                         <div className="pay-methods-card">
                             <h3 className="pay-section-title">Phương thức thanh toán</h3>
-
-                            {error && <div className="pay-error">{error}</div>}
-
-                            <div className="pay-methods-list">
-                                {PAYMENT_METHODS.map(method => (
-                                    <label
-                                        key={method.id}
-                                        className={`pay-method-item ${selectedMethod === method.id ? "pay-method-item--selected" : ""}`}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name="payment"
-                                            value={method.id}
-                                            checked={selectedMethod === method.id}
-                                            onChange={() => {
-                                                setSelectedMethod(method.id);
-                                                setError("");
-                                            }}
-                                        />
-                                        <div className="pay-method-icon">
-                                            <img
-                                                src={method.icon}
-                                                alt={method.label}
-                                                onError={e => {
-                                                    (e.target as HTMLImageElement).style.display = "none";
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="pay-method-info">
-                                            <span className="pay-method-label">{method.label}</span>
-                                            <span className="pay-method-desc">{method.desc}</span>
-                                        </div>
-                                    </label>
-                                ))}
+                            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0" }}>
+                                <img
+                                    src="/images/payment/vnpay.png"
+                                    alt="VNPay"
+                                    style={{ height: 44, objectFit: "contain" }}
+                                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                />
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>
+                                        Cổng thanh toán VNPay
+                                    </div>
+                                    <div style={{ fontSize: 13, color: "#6B7280" }}>
+                                        Hỗ trợ thẻ ATM, Visa/MasterCard, Internet Banking
+                                    </div>
+                                </div>
                             </div>
+                            {error && <div className="pay-error">{error}</div>}
                         </div>
 
                         {/* Nút thanh toán */}
-                        <button className="pay-submit-btn" onClick={handlePayment}>
-                            🔒 Thanh toán bảo mật
+                        <button
+                            className="pay-submit-btn"
+                            onClick={handlePayment}
+                            disabled={paying}
+                            style={{ opacity: paying ? 0.7 : 1, cursor: paying ? "not-allowed" : "pointer" }}
+                        >
+                            {paying ? "⏳ Đang xử lý..." : "🔒 Thanh toán qua VNPay"}
                         </button>
                         <p className="pay-policy">
                             Bằng việc thanh toán, bạn đồng ý với{" "}
@@ -297,39 +288,6 @@ export default function PaymentPage() {
                     </div>
                 </div>
             </div>
-
-            {/* Popup xác nhận thanh toán */}
-            {showConfirm && (
-                <div className="pay-confirm-overlay" onClick={() => setShowConfirm(false)}>
-                    <div className="pay-confirm-box" onClick={e => e.stopPropagation()}>
-                        <div className="pay-confirm-icon">💳</div>
-                        <h3>Xác nhận thanh toán</h3>
-                        <p>
-                            Bạn đã hoàn tất thanh toán qua&nbsp;
-                            <strong>
-                                {PAYMENT_METHODS.find(m => m.id === selectedMethod)?.label}
-                            </strong>?
-                        </p>
-                        <div className="pay-confirm-amount">
-                            {totalWithFee.toLocaleString("vi-VN")}đ
-                        </div>
-                        <div className="pay-confirm-actions">
-                            <button
-                                className="pay-confirm-btn pay-confirm-btn--back"
-                                onClick={() => setShowConfirm(false)}
-                            >
-                                Quay lại
-                            </button>
-                            <button
-                                className="pay-confirm-btn pay-confirm-btn--ok"
-                                onClick={handlePaymentSuccess}
-                            >
-                                Thanh toán thành công
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </>
     );
 }

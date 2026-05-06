@@ -1,9 +1,11 @@
 package com.bookticket.config;
-//Nơi chứa api
-import com.bookticket.service.UserDetailsServiceImpl;
+
+import com.bookticket.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -16,7 +18,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import com.bookticket.security.JwtAuthFilter;
 
 import java.util.List;
 
@@ -25,7 +26,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final UserDetailsServiceImpl userDetailsService;
     private final JwtAuthFilter jwtAuthFilter;
 
     @Bean
@@ -39,6 +39,22 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
+    /**
+     * JwtAuthFilter là @Component nên Spring Boot tự đăng ký nó như servlet filter
+     * (chạy NGOÀI DelegatingFilterProxy). Điều này gây ra double-run:
+     *   1. Chạy ngoài → set SecurityContext
+     *   2. SecurityContextHolderFilter reset SecurityContext về rỗng
+     *   3. Chạy trong Security chain → OncePerRequestFilter thấy đã chạy rồi → skip
+     *   4. SecurityContext trống → 401 mọi endpoint protected
+     * Fix: tắt servlet auto-registration, chỉ để chạy trong Spring Security chain.
+     */
+    @Bean
+    public FilterRegistrationBean<JwtAuthFilter> jwtFilterRegistration(JwtAuthFilter filter) {
+        FilterRegistrationBean<JwtAuthFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -46,12 +62,21 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((req, res, e) ->
+                                res.sendError(401, "Unauthorized — token missing or invalid"))
+                )
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/locations/**").permitAll()
                         .requestMatchers("/api/trips/**").permitAll()
+                        .requestMatchers("/api/payment/**").permitAll()
+                        .requestMatchers("/api/booking/confirm").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
-                ).addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -59,9 +84,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173")); // port Vite của React
+        config.setAllowedOrigins(List.of("http://localhost:5173","http://datvetau-demo.com:5173"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
