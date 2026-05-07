@@ -6,6 +6,7 @@ import lombok.*;
 @Entity
 @Table(name = "train_seats")
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class TrainSeat {
@@ -13,10 +14,6 @@ public class TrainSeat {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "trip_id")
-    private TrainTrip trip;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "carriage_id")
@@ -27,9 +24,4 @@ public class TrainSeat {
 
     @Column(name = "berth_position")
     private String berthPosition;
-
-    @Column(name = "ticket_price")
-    private java.math.BigDecimal ticketPrice;
-
-    private String status;
 }

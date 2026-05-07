@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Header from "../components/common/Header";
 import { tripApi } from "../api/trip";
 import type { SeatDTO } from "../types/seat";
@@ -23,6 +23,9 @@ const CARRIAGE_LABEL: Record<string, string> = {
 export default function SeatSelectionPage() {
     const { tripId } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const originId      = Number(searchParams.get("originId"));
+    const destinationId = Number(searchParams.get("destinationId"));
 
     const [carriages, setCarriages] = useState<CarriageGroup[]>([]);
     const [selectedCarriage, setSelectedCarriage] = useState<CarriageGroup | null>(null);
@@ -30,8 +33,8 @@ export default function SeatSelectionPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!tripId) return;
-        tripApi.getSeats(Number(tripId))
+        if (!tripId || !originId || !destinationId) return;
+        tripApi.getSeats(Number(tripId), originId, destinationId)
             .then(res => {
                 const data: Record<string, SeatDTO[]> = res.data;
                 const groups: CarriageGroup[] = Object.entries(data).map(([num, seats]) => ({
@@ -295,7 +298,7 @@ export default function SeatSelectionPage() {
                         disabled={selectedSeats.length === 0}
                         onClick={() => {
                             const seatIds = selectedSeats.map(s => s.id).join(",");
-                            navigate(`/trains/passenger-info?tripId=${tripId}&seatIds=${seatIds}`);
+                            navigate(`/trains/passenger-info?tripId=${tripId}&seatIds=${seatIds}&originId=${originId}&destinationId=${destinationId}`);
                         }}>
                         Tiếp tục
                     </button>

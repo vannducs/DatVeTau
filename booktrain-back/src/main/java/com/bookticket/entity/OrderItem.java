@@ -17,12 +17,12 @@ public class OrderItem {
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", nullable = false)
+    @JoinColumn(name = "order_id")
     private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "train_seat_id", nullable = false)
-    private TrainSeat trainSeat;
+    @JoinColumn(name = "seat_booking_id")
+    private SeatBooking seatBooking;
 
     @Column(name = "passenger_name", length = 100)
     private String passengerName;

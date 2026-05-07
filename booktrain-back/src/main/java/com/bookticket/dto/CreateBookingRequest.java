@@ -4,22 +4,23 @@ import java.util.List;
 
 public record CreateBookingRequest(
         Long tripId,
+        Integer boardLocationId,
+        Integer alightLocationId,
         List<PassengerDto> passengers,
         ContactDto contact,
         Long totalPrice,
-        Long serviceFee,
-        Long confirmedAt
+        Long serviceFee
 ) {
     public record PassengerDto(
-            Long seatId,
-            String seatNumber,
-            String carriageType,
+            Long    seatId,
+            String  seatNumber,
+            String  carriageType,
             Integer carriageNumber,
-            Long ticketPrice,
-            String passengerName,
-            String idNumber,
-            String phoneNumber,
-            String dateOfBirth
+            Long    ticketPrice,
+            String  passengerName,
+            String  idNumber,
+            String  phoneNumber,
+            String  dateOfBirth
     ) {}
 
     public record ContactDto(

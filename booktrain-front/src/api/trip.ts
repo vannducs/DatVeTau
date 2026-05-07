@@ -4,11 +4,15 @@ export const tripApi = {
     search: (originId: number, destinationId: number, date: string) =>
         api.get("/trips/search", {
             params: { originId, destinationId, date }
-        }), 
+        }),
 
-    getSeats: (tripId: number) =>
-        api.get(`/trips/${tripId}/seats`),
+    getSeats: (tripId: number, originId: number, destinationId: number) =>
+        api.get(`/trips/${tripId}/seats`, {
+            params: { originId, destinationId }
+        }),
 
-    getById: (tripId: number) =>
-        api.get(`/trips/${tripId}`),
+    getById: (tripId: number, originId?: number, destinationId?: number) =>
+        api.get(`/trips/${tripId}`, {
+            params: { originId, destinationId }
+        }),
 };

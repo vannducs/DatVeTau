@@ -9,21 +9,14 @@ import java.util.List;
 
 public interface TrainSeatRepository extends JpaRepository<TrainSeat, Integer> {
 
-    // Lấy ghế còn trống (dùng cho trang tìm kiếm)
     @Query("""
         SELECT s FROM TrainSeat s
-        JOIN FETCH s.carriage
-        WHERE s.trip.id = :tripId
-          AND s.status = 'available'
+        JOIN FETCH s.carriage c
+        JOIN FETCH c.train t
+        WHERE t.id = :trainId
+        ORDER BY c.carriageNumber, s.seatNumber
     """)
-    List<TrainSeat> findAvailableByTripId(@Param("tripId") Integer tripId);
+    List<TrainSeat> findAllByTrainId(@Param("trainId") Integer trainId);
 
-    // Lấy tất cả ghế (dùng cho sơ đồ ghế)
-    @Query("""
-        SELECT s FROM TrainSeat s
-        JOIN FETCH s.carriage
-        WHERE s.trip.id = :tripId
-        ORDER BY s.carriage.carriageNumber, s.seatNumber
-    """)
-    List<TrainSeat> findAllByTripId(@Param("tripId") Integer tripId);
+    List<TrainSeat> findByCarriageIdOrderBySeatNumber(Integer carriageId);
 }

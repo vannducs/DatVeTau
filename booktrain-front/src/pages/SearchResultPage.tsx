@@ -167,7 +167,12 @@ export default function SearchResultPage() {
                                 </div>
                                 <div className="trip-list">
                                     {sorted.map(trip => (
-                                        <TripCard key={trip.id} trip={trip} />
+                                        <TripCard
+                                            key={trip.id}
+                                            trip={trip}
+                                            originId={originId}
+                                            destinationId={destinationId}
+                                        />
                                     ))}
                                 </div>
                             </>

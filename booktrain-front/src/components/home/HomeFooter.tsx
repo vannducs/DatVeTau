@@ -45,7 +45,7 @@ export default function HomeFooter() {
             <div className="footer-social">
               {socialLinks.map((s) => (
                 <button key={s.name} className="social-btn" aria-label={s.name}>
-                  <span>{s.icon}</span>
+                  <span className="material-icons-round" style={{ fontSize: 20 }}>{s.materialIcon}</span>
                 </button>
               ))}
             </div>

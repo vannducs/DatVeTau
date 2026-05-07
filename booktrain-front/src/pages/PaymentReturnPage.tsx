@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import TicketPrint from "../components/TicketPrint";
+import type { TicketTripInfo } from "../components/TicketPrint";
 import "./Payment.css";
 
 interface PassengerForm {
@@ -69,15 +71,22 @@ export default function PaymentReturnPage() {
     const [loading,     setLoading]     = useState(true);
     const [result,      setResult]      = useState<VerifyResult | null>(null);
     const [bookingData, setBookingData] = useState<BookingData | null>(null);
+    const [tripInfo,    setTripInfo]    = useState<TicketTripInfo | null>(null);
     const [copied,      setCopied]      = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
 
     const bankCode = searchParams.get("vnp_BankCode") ?? "";
     const cardType = searchParams.get("vnp_CardType")  ?? "";
     const payDate  = searchParams.get("vnp_PayDate")   ?? "";
 
     useEffect(() => {
+        // Save bookingData to state before sessionStorage gets cleared
         const raw = sessionStorage.getItem("bookingData");
-        if (raw) setBookingData(JSON.parse(raw));
+        let parsed: BookingData | null = null;
+        if (raw) {
+            parsed = JSON.parse(raw);
+            setBookingData(parsed);
+        }
 
         const params = Object.fromEntries(searchParams.entries());
 
@@ -98,6 +107,16 @@ export default function PaymentReturnPage() {
                         console.error("Confirm booking failed:", e);
                     }
                     sessionStorage.removeItem("bookingData");
+
+                    // Fetch trip info for ticket printing
+                    if (parsed?.tripId) {
+                        try {
+                            const tripRes = await axios.get(`/api/trips/${parsed.tripId}`);
+                            setTripInfo(tripRes.data);
+                        } catch {
+                            // Non-critical: ticket still renders without trip info
+                        }
+                    }
                 }
             })
             .catch(() => {
@@ -115,17 +134,19 @@ export default function PaymentReturnPage() {
 
     return (
         <>
+            {/* ── Trang header ── */}
             <div className="pay-header no-print">
                 <div className="pay-header-inner">
                     <div className="pay-logo">DatVeXe</div>
                 </div>
             </div>
 
-            <div className="pay-page">
+            {/* ── Main content (ẩn khi in) ── */}
+            <div className="pay-page no-print">
                 <div className="pay-body" style={{ justifyContent: "center" }}>
                     <div className="pay-left" style={{ maxWidth: 640 }}>
 
-                        {/* ── Đang xác nhận ── */}
+                        {/* Đang xác nhận */}
                         {loading && (
                             <div className="pay-trip-card" style={{ textAlign: "center", padding: "48px 24px" }}>
                                 <div style={{ marginBottom: 16 }}>
@@ -156,7 +177,6 @@ export default function PaymentReturnPage() {
                                         Đặt vé thành công!
                                     </h2>
 
-                                    {/* Mã đơn hàng + copy */}
                                     <div style={{
                                         display: "inline-flex", alignItems: "center", gap: 10,
                                         background: "#EFF6FF", borderRadius: 8,
@@ -187,7 +207,7 @@ export default function PaymentReturnPage() {
                                     </div>
                                 </div>
 
-                                {/* Card 2: Thông tin chuyến (nếu có bookingData) */}
+                                {/* Card 2: Thông tin chuyến */}
                                 {bookingData && (
                                     <div className="pay-trip-card">
                                         <div className="pay-trip-badge">THÔNG TIN CHUYẾN</div>
@@ -204,7 +224,7 @@ export default function PaymentReturnPage() {
                                     </div>
                                 )}
 
-                                {/* Card 3: Hành khách (nếu có bookingData) */}
+                                {/* Card 3: Hành khách */}
                                 {bookingData && bookingData.passengers.length > 0 && (
                                     <div className="pay-summary-card">
                                         <div className="pay-summary-header">
@@ -275,25 +295,35 @@ export default function PaymentReturnPage() {
                                 </div>
 
                                 {/* Nút hành động */}
-                                <div className="pay-confirm-actions no-print" style={{ marginTop: 0, flexWrap: "wrap", gap: 10 }}>
-                                    <button className="pay-confirm-btn pay-confirm-btn--back"
-                                        onClick={() => window.print()}>
+                                <div className="pay-confirm-actions" style={{ marginTop: 0, flexWrap: "wrap", gap: 10 }}>
+                                    <button
+                                        className="pay-confirm-btn pay-confirm-btn--ok"
+                                        onClick={() => setShowPreview(true)}
+                                        style={{ background: "#2F6FED" }}
+                                    >
+                                        <span className="material-icons-round" style={{ fontSize: 16, verticalAlign: "middle", marginRight: 4 }}>visibility</span>
+                                        Xem trước vé
+                                    </button>
+                                    <button
+                                        className="pay-confirm-btn pay-confirm-btn--ok"
+                                        onClick={() => window.print()}
+                                    >
                                         <span className="material-icons-round" style={{ fontSize: 16, verticalAlign: "middle", marginRight: 4 }}>print</span>
-                                        In vé
+                                        In vé / Boarding Pass
                                     </button>
                                     <button className="pay-confirm-btn pay-confirm-btn--back"
                                         onClick={() => navigate("/my-orders")}>
                                         <span className="material-icons-round" style={{ fontSize: 16, verticalAlign: "middle", marginRight: 4 }}>list_alt</span>
                                         Lịch sử đặt vé
                                     </button>
-                                    <button className="pay-confirm-btn pay-confirm-btn--ok"
+                                    <button className="pay-confirm-btn pay-confirm-btn--back"
                                         onClick={() => navigate("/")}>
                                         <span className="material-icons-round" style={{ fontSize: 16, verticalAlign: "middle", marginRight: 4 }}>home</span>
                                         Về trang chủ
                                     </button>
                                 </div>
 
-                                <p className="pay-policy no-print">
+                                <p className="pay-policy">
                                     Cảm ơn bạn đã sử dụng dịch vụ của <strong>DatVeXe</strong> 🎉
                                 </p>
                             </>
@@ -354,6 +384,63 @@ export default function PaymentReturnPage() {
                     </div>
                 </div>
             </div>
+
+            {/* ── Vé tàu — ẩn trên màn hình, hiện khi print ── */}
+            {result?.success && bookingData && (
+                <TicketPrint
+                    orderCode={result.orderCode ?? ""}
+                    passengers={bookingData.passengers.map(p => ({
+                        passengerName:  p.passengerName,
+                        idNumber:       p.idNumber,
+                        seatNumber:     p.seatNumber,
+                        carriageNumber: p.carriageNumber,
+                        carriageType:   p.carriageType,
+                        ticketPrice:    p.ticketPrice,
+                    }))}
+                    tripInfo={tripInfo}
+                    totalAmount={result.amount ?? 0}
+                />
+            )}
+
+            {/* ── Preview modal ── */}
+            {showPreview && result?.success && bookingData && (
+                <div className="ticket-preview-modal" onClick={() => setShowPreview(false)}>
+                    <div className="ticket-preview-content" onClick={e => e.stopPropagation()}>
+                        <div className="ticket-preview-header">
+                            <span className="ticket-preview-title">Xem trước vé / Preview</span>
+                            <div className="ticket-preview-actions">
+                                <button
+                                    className="ticket-preview-btn ticket-preview-btn--close"
+                                    onClick={() => setShowPreview(false)}
+                                >
+                                    <span className="material-icons-round" style={{ fontSize: 16 }}>close</span>
+                                    Đóng
+                                </button>
+                                <button
+                                    className="ticket-preview-btn ticket-preview-btn--print"
+                                    onClick={() => { setShowPreview(false); setTimeout(() => window.print(), 100); }}
+                                >
+                                    <span className="material-icons-round" style={{ fontSize: 16 }}>print</span>
+                                    In vé
+                                </button>
+                            </div>
+                        </div>
+                        <TicketPrint
+                            orderCode={result.orderCode ?? ""}
+                            passengers={bookingData.passengers.map(p => ({
+                                passengerName:  p.passengerName,
+                                idNumber:       p.idNumber,
+                                seatNumber:     p.seatNumber,
+                                carriageNumber: p.carriageNumber,
+                                carriageType:   p.carriageType,
+                                ticketPrice:    p.ticketPrice,
+                            }))}
+                            tripInfo={tripInfo}
+                            totalAmount={result.amount ?? 0}
+                        />
+                    </div>
+                </div>
+            )}
         </>
     );
 }

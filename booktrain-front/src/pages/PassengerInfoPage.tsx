@@ -32,8 +32,10 @@ export default function PassengerInfoPage() {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    const tripId = Number(searchParams.get("tripId"));
-    const seatIds = searchParams.get("seatIds")?.split(",").map(Number) || [];
+    const tripId      = Number(searchParams.get("tripId"));
+    const seatIds     = searchParams.get("seatIds")?.split(",").map(Number) || [];
+    const originId    = Number(searchParams.get("originId"));
+    const destinationId = Number(searchParams.get("destinationId"));
 
     const [trip, setTrip] = useState<TripResult | null>(null);
     const [forms, setForms] = useState<PassengerForm[]>([]);

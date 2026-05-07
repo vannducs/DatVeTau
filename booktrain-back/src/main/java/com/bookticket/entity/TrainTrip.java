@@ -2,11 +2,13 @@ package com.bookticket.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "train_trips")
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class TrainTrip {
@@ -19,13 +21,8 @@ public class TrainTrip {
     @JoinColumn(name = "train_id")
     private Train train;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "origin_id")
-    private Location origin;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "destination_id")
-    private Location destination;
+    @Column(name = "departure_date")
+    private LocalDate departureDate;
 
     @Column(name = "departure_time")
     private OffsetDateTime departureTime;

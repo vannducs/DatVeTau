@@ -7,9 +7,11 @@ import "./tripCard.css";
 
 interface TripCardProps {
     trip: TripResult;
+    originId: number;
+    destinationId: number;
 }
 
-export default function TripCard({ trip }: TripCardProps) {
+export default function TripCard({ trip, originId, destinationId }: TripCardProps) {
     const { isAuthenticated } = useAuth();
     const navigate = useNavigate();
     const [showModal, setShowModal] = useState(false);
@@ -22,11 +24,11 @@ export default function TripCard({ trip }: TripCardProps) {
             setShowModal(true);
             return;
         }
-        navigate(`/trains/booking/${trip.id}`);
+        navigate(`/trains/booking/${trip.id}?originId=${originId}&destinationId=${destinationId}`);
     }
 
     function handleConfirmLogin() {
-        sessionStorage.setItem("redirectAfterLogin", `/trains/booking/${trip.id}`);
+        sessionStorage.setItem("redirectAfterLogin", `/trains/booking/${trip.id}?originId=${originId}&destinationId=${destinationId}`);
         setShowModal(false);
         navigate("/login");
     }
