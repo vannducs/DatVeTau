@@ -61,7 +61,7 @@ export default function DashboardPage() {
         return () => clearInterval(timer);
     }, [fetchAll]);
 
-    if (loading) return <div className="admin-loading">Đang tải dữ liệu...</div>;
+    if (loading || !summary) return <div className="admin-loading">Đang tải dữ liệu...</div>;
 
     const fmt = (n: number) => n?.toLocaleString("vi-VN") ?? "0";
 

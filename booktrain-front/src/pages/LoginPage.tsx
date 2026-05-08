@@ -1,34 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, Train } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import "./auth.css";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  useEffect(() => {
+    if (!justLoggedIn || !user) return;
+
+    setJustLoggedIn(false);
+
+    const redirectUrl = sessionStorage.getItem("redirectAfterLogin");
+    if (redirectUrl) {
+      sessionStorage.removeItem("redirectAfterLogin");
+      navigate(redirectUrl);
+      return;
+    }
+
+    if (user.accountType === "admin") {
+      window.location.href = window.location.origin + "/admin";
+    } else {
+      navigate("/");
+    }
+  }, [user, justLoggedIn, navigate]);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
       await login(identifier, password);
-      const redirectUrl = sessionStorage.getItem("redirectAfterLogin");
-      if (redirectUrl){
-        sessionStorage.removeItem("redirectAfterLogin");
-        navigate(redirectUrl);
-      }else{
-        navigate("/");
-      }
+      setJustLoggedIn(true);
     } catch {
       setError("Đăng nhập thất bại!");
-    }finally{
+    } finally {
       setLoading(false);
     }
   }

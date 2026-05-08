@@ -1,9 +1,15 @@
+/* ── Font scope — applies Google Sans Flex to all admin elements ────────────── */
+.admin-layout,
+.admin-layout * {
+    font-family: 'Google Sans Flex', 'Google Sans', sans-serif;
+}
+
 /* ── Admin Layout ──────────────────────────────────────────────────────────── */
 .admin-layout {
     display: flex;
     min-height: 100vh;
     background: #F5F7FA;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Google Sans Flex', 'Google Sans', sans-serif;
 }
 
 .admin-main {
