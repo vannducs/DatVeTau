@@ -62,8 +62,8 @@ export default function PassengerInfoPage() {
         if (!tripId || seatIds.length === 0) return;
 
         Promise.all([
-            tripApi.getById(tripId),
-            tripApi.getSeats(tripId),
+            tripApi.getById(tripId, originId, destinationId),
+            tripApi.getSeats(tripId, originId, destinationId),
         ]).then(([tripRes, seatsRes]) => {
             setTrip(tripRes.data);
 
@@ -114,6 +114,8 @@ export default function PassengerInfoPage() {
         const now = Date.now();
         const bookingData = {
             tripId,
+            boardLocationId: originId,
+            alightLocationId: destinationId,
             passengers: forms,
             contact: { name: contactName, phone: contactPhone, email: contactEmail },
             totalPrice,

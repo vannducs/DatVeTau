@@ -19,6 +19,8 @@ interface PassengerForm {
 
 interface BookingData {
     tripId: number;
+    boardLocationId: number;
+    alightLocationId: number;
     passengers: PassengerForm[];
     contact: { name: string; phone: string; email: string };
     totalPrice: number;
@@ -87,13 +89,15 @@ export default function PaymentPage() {
         try {
             // Bước 1: Tạo order trong DB
             const orderRes = await axios.post(
-                "http://localhost:8080/api/booking/create",
+                "/api/booking/create",
                 {
-                    tripId:     bookingData!.tripId,
-                    passengers: bookingData!.passengers,
-                    contact:    bookingData!.contact,
-                    totalPrice: bookingData!.totalPrice,
-                    serviceFee: 15000,
+                    tripId:           bookingData!.tripId,
+                    boardLocationId:  bookingData!.boardLocationId,
+                    alightLocationId: bookingData!.alightLocationId,
+                    passengers:       bookingData!.passengers,
+                    contact:          bookingData!.contact,
+                    totalPrice:       bookingData!.totalPrice,
+                    serviceFee:       15000,
                 },
                 {
                     headers: {
@@ -106,7 +110,7 @@ export default function PaymentPage() {
 
             // Bước 2: Tạo URL VNPay sandbox
             const paymentRes = await axios.post(
-                "http://localhost:8080/api/payment/vnpay/create",
+                "/api/payment/vnpay/create",
                 {
                     amount:    totalWithFee,
                     orderCode: orderCode,
