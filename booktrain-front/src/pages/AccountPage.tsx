@@ -1,9 +1,9 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import {
     User, Star, ShoppingBag, Tag, Gift,
     CreditCard, MessageSquare, HelpCircle,
-    Lightbulb, Briefcase, LogOut
+    Lightbulb, LogOut
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import "./AccountPage.css";
@@ -28,7 +28,7 @@ export default function AccountPage() {
         alert("Lưu thành công!");
     };
 
-    const menuItems = [
+    const menuItems: { icon: React.ReactNode; label: string; to: string; active?: boolean; badge?: string | number }[] = [
         { icon: <User size={18} />, label: "Thông tin tài khoản", to: "/account", active: true },
         { icon: <Star size={18} />, label: "Điểm thưởng của tôi", to: "#" },
         { icon: <ShoppingBag size={18} />, label: "Đơn hàng của tôi", to: "/my-orders" },

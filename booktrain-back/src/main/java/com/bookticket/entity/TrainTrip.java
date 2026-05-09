@@ -31,4 +31,22 @@ public class TrainTrip {
     private OffsetDateTime arrivalTime;
 
     private String status;
+
+    @Column(name = "origin_id")
+    private Integer originId;
+
+    @Column(name = "destination_id")
+    private Integer destinationId;
+
+    @Column(name = "created_by")
+    private Integer createdBy;
+
+    @Column(name = "cancelled_by")
+    private Integer cancelledBy;
+
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
+    @Column(name = "cancel_reason")
+    private String cancelReason;
 }

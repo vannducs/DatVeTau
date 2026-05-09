@@ -1,5 +1,5 @@
 import {
-    createContext, useContext, useState,
+    createContext, useState,
     useEffect, useCallback, type ReactNode
 } from "react";
 import { authApi } from "../api/auth";

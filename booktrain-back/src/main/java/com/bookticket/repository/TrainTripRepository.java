@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,4 +26,8 @@ public interface TrainTripRepository extends JpaRepository<TrainTrip, Integer> {
             @Param("trainIds") List<Integer> trainIds,
             @Param("date")     LocalDate date
     );
+
+    Optional<TrainTrip> findTopByTrainIdOrderByDepartureDateDesc(Integer trainId);
+
+    boolean existsByTrainIdAndStatusAndArrivalTimeAfter(Integer trainId, String status, OffsetDateTime time);
 }

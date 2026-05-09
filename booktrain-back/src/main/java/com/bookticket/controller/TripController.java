@@ -175,6 +175,7 @@ public class TripController {
             dto.setStatus(status);
             dto.setTicketPrice(price);
             dto.setCompartmentNumber(compartmentNumber);
+            dto.setIsVip(seat.getCarriage().getIsVip());
 
             groupedByCarriage
                     .computeIfAbsent(seat.getCarriage().getCarriageNumber(), k -> new ArrayList<>())

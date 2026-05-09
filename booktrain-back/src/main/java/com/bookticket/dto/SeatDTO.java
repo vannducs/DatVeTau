@@ -13,4 +13,5 @@ public class SeatDTO {
     private String  status;           // "available" | "booked"
     private Long    ticketPrice;
     private Integer compartmentNumber;
+    private Boolean isVip;
 }

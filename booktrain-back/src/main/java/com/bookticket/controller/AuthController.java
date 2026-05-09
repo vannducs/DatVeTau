@@ -9,6 +9,7 @@ import com.bookticket.security.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -19,6 +20,7 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final JwtUtils jwtUtils;
+    private final PasswordEncoder passwordEncoder;
 
     // POST /api/auth/login
     @PostMapping("/login")
@@ -28,7 +30,7 @@ public class AuthController {
                 .findByEmailOrPhoneNumber(request.getIdentifier(), request.getIdentifier())
                 .orElse(null);
 
-        if (user == null || !user.getPassword().equals(request.getPassword())) {
+        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(AuthResponse.builder().message("Thông tin đăng nhập không đúng!").build());
         }
@@ -76,7 +78,7 @@ public class AuthController {
         User user = User.builder()
                 .fullName(request.getFullName())
                 .email(request.getEmail())
-                .password(request.getPassword())
+                .password(passwordEncoder.encode(request.getPassword()))
                 .phoneNumber(request.getPhoneNumber())
                 .dateOfBirth(request.getDateOfBirth() != null
                         ? java.time.LocalDate.parse(request.getDateOfBirth()) : null)
@@ -97,7 +99,6 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<?> getMe(@RequestHeader("Authorization") String authHeader) {
 
-        // Kiểm tra header hợp lệ
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(AuthResponse.builder().message("Token không hợp lệ!").build());
@@ -105,7 +106,6 @@ public class AuthController {
 
         String token = authHeader.substring(7);
 
-        // Kiểm tra token hợp lệ
         if (!jwtUtils.validateToken(token)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(AuthResponse.builder().message("Token đã hết hạn hoặc không hợp lệ!").build());

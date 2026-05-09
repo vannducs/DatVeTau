@@ -5,7 +5,10 @@ import lombok.*;
 
 @Entity
 @Table(name = "train_carriages")
-@Data @NoArgsConstructor @AllArgsConstructor
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TrainCarriage {
 
     @Id
@@ -21,6 +24,12 @@ public class TrainCarriage {
 
     @Column(name = "carriage_type")
     private String carriageType;
+
+    @Column(name = "is_vip")
+    private Boolean isVip;
+
+    @Column(name = "amenities")
+    private String amenities;
 
     @Column(name = "seats_per_compartment")
     private Integer seatsPerCompartment;

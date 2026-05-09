@@ -38,8 +38,8 @@ export default function OccupancyChart({ data }: Props) {
                     axisLine={false}
                 />
                 <Tooltip
-                    formatter={(v: number, _: string, props: { payload: DataPoint }) => [
-                        `${v}% (${props.payload.booked_seats}/${props.payload.total_seats} ghế)`,
+                    formatter={(v: number, _: string, props: { payload?: DataPoint }) => [
+                        `${v}% (${props.payload?.booked_seats ?? 0}/${props.payload?.total_seats ?? 0} ghế)`,
                         "Lấp đầy",
                     ]}
                     contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }}

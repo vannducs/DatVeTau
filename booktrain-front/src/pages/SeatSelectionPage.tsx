@@ -9,10 +9,13 @@ interface CarriageGroup {
     carriageNumber: number;
     carriageType: string;
     carriageId: number;
+    isVip: boolean;
     seats: SeatDTO[];
 }
 
 const CARRIAGE_LABEL: Record<string, string> = {
+    seat:           "Ghế ngồi",
+    sleeper:        "Ghế nằm",
     hard_seat:      "Ngồi cứng",
     soft_seat:      "Ngồi mềm",
     hard_sleeper:   "Giường khoang 6",
@@ -41,6 +44,7 @@ export default function SeatSelectionPage() {
                     carriageNumber: Number(num),
                     carriageType: seats[0]?.carriageType || "",
                     carriageId: seats[0]?.carriageId || 0,
+                    isVip: seats[0]?.isVip ?? false,
                     seats,
                 }));
                 groups.sort((a, b) => a.carriageNumber - b.carriageNumber);
@@ -73,9 +77,10 @@ export default function SeatSelectionPage() {
     }
 
     function renderSeatCarriage(seats: SeatDTO[]) {
-        const half = Math.ceil(seats.length / 2);
-        const topRow = seats.slice(0, half);
-        const bottomRow = seats.slice(half);
+        const display = seats.slice(0, 32);
+        const half = Math.ceil(display.length / 2);
+        const topRow = display.slice(0, half);
+        const bottomRow = display.slice(half);
 
         return (
             <div className="ss-seat-map-wrap">
@@ -85,13 +90,10 @@ export default function SeatSelectionPage() {
                             <div key={seat.id} className={getSeatClass(seat)}
                                 onClick={() => handleSelectSeat(seat)}>
                                 <div className="ss-seat-icon">
-                                    {seat.status === "booked" ? "✕" : seat.seatNumber}
+                                    {seat.status === "booked"
+                                        ? <span className="material-icons-round" style={{ fontSize: 14 }}>close</span>
+                                        : seat.seatNumber}
                                 </div>
-                                {seat.status !== "booked" && (
-                                    <div className="ss-seat-price">
-                                        {Math.round(seat.ticketPrice / 1000)}K
-                                    </div>
-                                )}
                             </div>
                         ))}
                     </div>
@@ -101,13 +103,10 @@ export default function SeatSelectionPage() {
                             <div key={seat.id} className={getSeatClass(seat)}
                                 onClick={() => handleSelectSeat(seat)}>
                                 <div className="ss-seat-icon">
-                                    {seat.status === "booked" ? "✕" : seat.seatNumber}
+                                    {seat.status === "booked"
+                                        ? <span className="material-icons-round" style={{ fontSize: 14 }}>close</span>
+                                        : seat.seatNumber}
                                 </div>
-                                {seat.status !== "booked" && (
-                                    <div className="ss-seat-price">
-                                        {Math.round(seat.ticketPrice / 1000)}K
-                                    </div>
-                                )}
                             </div>
                         ))}
                     </div>
@@ -116,45 +115,39 @@ export default function SeatSelectionPage() {
         );
     }
 
-    function renderSleeperCarriage(seats: SeatDTO[], isSoft: boolean) {
-        const perCompartment = isSoft ? 4 : 6;
+    function renderSleeperCarriage(seats: SeatDTO[]) {
+        const displaySeats = seats.slice(0, 18); // max 6 khoang × 3
         const compartments: SeatDTO[][] = [];
-        for (let i = 0; i < seats.length; i += perCompartment) {
-            compartments.push(seats.slice(i, i + perCompartment));
+        for (let i = 0; i < displaySeats.length; i += 3) {
+            compartments.push(displaySeats.slice(i, i + 3));
         }
 
-        const tiers = isSoft ? ["upper", "lower"] : ["upper", "middle", "lower"];
-        const tierLabel: Record<string, string> = {
-            lower: "Tầng: 1", middle: "Tầng: 2", upper: "Tầng: 3",
-        };
+        const tierLabels = ["Tầng 1", "Tầng 2", "Tầng 3"];
 
         return (
             <div className="ss-sleeper-wrap">
                 <div className="ss-sleeper-aisle-label">H À N H &nbsp; L A N G</div>
                 <div className="ss-sleeper-grid">
                     <div className="ss-tier-labels">
-                        {tiers.map(tier => (
-                            <div key={tier} className="ss-tier-label">{tierLabel[tier]}</div>
+                        {tierLabels.map(label => (
+                            <div key={label} className="ss-tier-label">{label}</div>
                         ))}
                     </div>
                     <div className="ss-compartments">
                         {compartments.map((comp, idx) => (
                             <div key={idx} className="ss-compartment">
-                                {tiers.map(tier => {
-                                    const seat = comp.find(s => s.berthPosition === tier);
-                                    if (!seat) return <div key={tier} className="ss-berth ss-berth--empty" />;
+                                {Array.from({ length: 3 }).map((_, row) => {
+                                    const seat = comp[row];
+                                    if (!seat) return <div key={row} className="ss-berth ss-berth--empty" />;
                                     return (
-                                        <div key={tier}
+                                        <div key={row}
                                             className={`ss-berth ${seat.status === "booked" ? "ss-berth--booked" : isSeatSelected(seat) ? "ss-berth--selected" : "ss-berth--available"}`}
                                             onClick={() => handleSelectSeat(seat)}>
                                             <span className="ss-berth-num">
-                                                {seat.status === "booked" ? "✕" : seat.seatNumber}
+                                                {seat.status === "booked"
+                                                    ? <span className="material-icons-round" style={{ fontSize: 14 }}>close</span>
+                                                    : seat.seatNumber}
                                             </span>
-                                            {seat.status !== "booked" && (
-                                                <span className="ss-berth-price">
-                                                    {Math.round(seat.ticketPrice / 1000)}K
-                                                </span>
-                                            )}
                                         </div>
                                     );
                                 })}
@@ -189,7 +182,7 @@ export default function SeatSelectionPage() {
     );
 
     const isSleeper = (type: string) =>
-        ["soft_sleeper", "hard_sleeper", "vip_ac_sleeper"].includes(type);
+        type === "sleeper" || ["soft_sleeper", "hard_sleeper", "vip_ac_sleeper"].includes(type);
 
     return (
         <>
@@ -198,27 +191,27 @@ export default function SeatSelectionPage() {
                 {/* Chọn toa */}
                 <div className="ss-carriage-bar">
                     <div className="ss-carriage-bar-inner">
+                        {/* Đầu tàu */}
+                        <div className="ss-locomotive">
+                            <span className="material-icons-round">train</span>
+                            <span className="ss-locomotive-label">Đầu tàu</span>
+                        </div>
+
                         {carriages.map(c => {
                             const avail = c.seats.filter(s => s.status === "available").length;
-                            const minPrice = avail > 0
-                                ? Math.min(...c.seats.filter(s => s.status === "available").map(s => s.ticketPrice))
-                                : 0;
                             const isActive = selectedCarriage?.carriageNumber === c.carriageNumber;
                             return (
                                 <button key={c.carriageNumber}
                                     className={`ss-cbtn ${isActive ? "ss-cbtn--active" : ""} ${avail === 0 ? "ss-cbtn--full" : ""}`}
                                     onClick={() => avail > 0 && setSelectedCarriage(c)}>
-                                    <span className="ss-cbtn-num">{c.carriageNumber}</span>
-                                    <div className="ss-cbtn-body">
-                                        <span className="ss-cbtn-type">
-                                            {CARRIAGE_LABEL[c.carriageType]}
-                                        </span>
-                                        <span className="ss-cbtn-info">
-                                            {avail > 0
-                                                ? `${avail} chỗ • Từ ${Math.round(minPrice / 1000)}K`
-                                                : "Hết chỗ"}
-                                        </span>
-                                    </div>
+                                    <span className="ss-cbtn-num">Toa {c.carriageNumber}</span>
+                                    <span className="ss-cbtn-type">
+                                        {CARRIAGE_LABEL[c.carriageType] ?? c.carriageType}
+                                        {c.isVip && " ★ VIP"}
+                                    </span>
+                                    <span className="ss-cbtn-info">
+                                        {avail > 0 ? `${avail} chỗ trống` : "Hết chỗ"}
+                                    </span>
                                 </button>
                             );
                         })}
@@ -231,12 +224,19 @@ export default function SeatSelectionPage() {
                         <div className="ss-map-header">
                             <div className="ss-map-left">
                                 <h3 className="ss-map-title">
-                                    Toa {selectedCarriage.carriageNumber}:&nbsp;
-                                    {CARRIAGE_LABEL[selectedCarriage.carriageType]}
+                                    Toa {selectedCarriage.carriageNumber} —{" "}
+                                    {CARRIAGE_LABEL[selectedCarriage.carriageType] ?? selectedCarriage.carriageType}
+                                    {selectedCarriage.isVip && (
+                                        <span style={{
+                                            marginLeft: 8, background: "#FFC107", color: "#7B4F00",
+                                            padding: "2px 8px", borderRadius: 4, fontSize: 12, fontWeight: 700
+                                        }}>VIP</span>
+                                    )}
+                                    <span style={{ fontWeight: 400, fontSize: 14, color: "#6B7280", marginLeft: 8 }}>
+                                        ({selectedCarriage.seats.filter(s => s.status === "available").length} chỗ trống
+                                        / {selectedCarriage.seats.length} chỗ)
+                                    </span>
                                 </h3>
-                                <p className="ss-map-hint">
-                                    Giá hiển thị trên ghế là giá vé cho 1 người lớn.
-                                </p>
                             </div>
                             <div className="ss-legend">
                                 <span className="ss-legend-item">
@@ -256,11 +256,7 @@ export default function SeatSelectionPage() {
 
                         <div className="ss-map-content">
                             {isSleeper(selectedCarriage.carriageType)
-                                ? renderSleeperCarriage(
-                                    selectedCarriage.seats,
-                                    selectedCarriage.carriageType === "soft_sleeper" ||
-                                    selectedCarriage.carriageType === "vip_ac_sleeper"
-                                )
+                                ? renderSleeperCarriage(selectedCarriage.seats)
                                 : renderSeatCarriage(selectedCarriage.seats)
                             }
                         </div>

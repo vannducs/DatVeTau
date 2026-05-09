@@ -32,10 +32,40 @@
     flex-wrap: wrap;
 }
 
+.ss-locomotive {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 64px;
+    height: 100%;
+    background: #1a1a2e;
+    border-radius: 8px;
+    color: white;
+    gap: 4px;
+    padding: 8px 12px;
+    margin-right: 4px;
+    flex-shrink: 0;
+    cursor: default;
+}
+
+.ss-locomotive .material-icons-round {
+    font-size: 28px;
+    color: #FFC107;
+}
+
+.ss-locomotive-label {
+    font-size: 10px;
+    color: #aaa;
+    text-align: center;
+    white-space: nowrap;
+}
+
 .ss-cbtn {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
     padding: 8px 14px;
     border: 1.5px solid #e5e7eb;
     border-radius: 8px;
@@ -59,31 +89,17 @@
 }
 
 .ss-cbtn-num {
-    width: 24px;
-    height: 24px;
-    background: #2F6FED;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
-    flex-shrink: 0;
+    color: #111827;
 }
 
-.ss-cbtn--active .ss-cbtn-num { background: #1d4ed8; }
-
-.ss-cbtn-body {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-}
+.ss-cbtn--active .ss-cbtn-num { color: #2F6FED; }
 
 .ss-cbtn-type {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    color: #111827;
+    color: #374151;
 }
 
 .ss-cbtn--active .ss-cbtn-type { color: #2F6FED; }

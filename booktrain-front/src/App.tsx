@@ -16,14 +16,17 @@ import PaymentReturnPage from "./pages/PaymentReturnPage";
 import AdminRoute  from "./components/common/AdminRoute";
 import PrivateRoute from "./components/common/PrivateRoute";
 
-import AdminApp          from "./admin/AdminApp";
-import DashboardPage     from "./admin/pages/DashboardPage";
-import TripsPage         from "./admin/pages/TripsPage";
-import LocationsPage     from "./admin/pages/LocationsPage";
-import UsersPage         from "./admin/pages/UsersPage";
-import SeatsPage         from "./admin/pages/SeatsPage";
-import PaymentsPage      from "./admin/pages/PaymentsPage";
-import OrderHistoryPage  from "./admin/pages/OrderHistoryPage";
+import AdminApp             from "./admin/AdminApp";
+import DashboardPage        from "./admin/pages/DashboardPage";
+import TrainsPage           from "./admin/pages/TrainsPage";
+import TrainDetailPage      from "./admin/pages/TrainDetailPage";
+import TripsPage            from "./admin/pages/TripsPage";
+import LocationsPage        from "./admin/pages/LocationsPage";
+import UsersPage            from "./admin/pages/UsersPage";
+import PaymentsPage         from "./admin/pages/PaymentsPage";
+import OrderHistoryPage     from "./admin/pages/OrderHistoryPage";
+import NotificationsPage    from "./admin/pages/NotificationsPage";
+import AdminLogsPage        from "./admin/pages/AdminLogsPage";
 
 function App() {
   return (
@@ -63,13 +66,16 @@ function App() {
             <AdminRoute><AdminApp /></AdminRoute>
           }>
             <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="trips"     element={<TripsPage />} />
-            <Route path="locations" element={<LocationsPage />} />
-            <Route path="users"     element={<UsersPage />} />
-            <Route path="seats"     element={<SeatsPage />} />
-            <Route path="payments"  element={<PaymentsPage />} />
-            <Route path="orders"    element={<OrderHistoryPage />} />
+            <Route path="dashboard"     element={<DashboardPage />} />
+            <Route path="trains"        element={<TrainsPage />} />
+            <Route path="trains/:trainId" element={<TrainDetailPage />} />
+            <Route path="trips"         element={<TripsPage />} />
+            <Route path="locations"     element={<LocationsPage />} />
+            <Route path="users"         element={<UsersPage />} />
+            <Route path="payments"      element={<PaymentsPage />} />
+            <Route path="orders"        element={<OrderHistoryPage />} />
+            <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="logs"          element={<AdminLogsPage />} />
           </Route>
         </Routes>
       </AuthProvider>

@@ -7,6 +7,7 @@ export interface SeatDTO {
     carriageId: number;
     carriageNumber: number;
     carriageType: string;
+    isVip?: boolean;
 }
 
 export interface CarriageSeats {
