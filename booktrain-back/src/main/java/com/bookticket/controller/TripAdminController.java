@@ -12,7 +12,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.sql.PreparedStatement;
-import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -228,7 +227,7 @@ public class TripAdminController {
                         (train_id, origin_id, destination_id, departure_date,
                          departure_time, arrival_time, status, created_by)
                     VALUES (?, ?, ?, ?::date, ?::timestamptz, ?::timestamptz, 'open', ?)
-                    """, Statement.RETURN_GENERATED_KEYS);
+                    """, new String[] {"id"});
             ps.setInt(1, req.trainId());
             ps.setInt(2, req.originId());
             ps.setInt(3, req.destinationId());

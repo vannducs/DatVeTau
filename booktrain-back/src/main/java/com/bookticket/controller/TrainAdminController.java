@@ -14,7 +14,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.sql.PreparedStatement;
-import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -112,7 +111,7 @@ public class TrainAdminController {
             jdbc.update(conn -> {
                 PreparedStatement ps = conn.prepareStatement(
                         "INSERT INTO trains (train_code, train_name, train_type) VALUES (?, ?, ?)",
-                        Statement.RETURN_GENERATED_KEYS);
+                        new String[] {"id"});
                 ps.setString(1, req.trainCode());
                 ps.setString(2, req.trainName());
                 ps.setString(3, req.trainType() != null ? req.trainType() : "express");
@@ -217,7 +216,7 @@ public class TrainAdminController {
             PreparedStatement ps = conn.prepareStatement("""
                     INSERT INTO train_carriages (train_id, carriage_number, carriage_type, is_vip, amenities, seats_per_compartment)
                     VALUES (?, ?, ?, ?, ?, ?)
-                    """, Statement.RETURN_GENERATED_KEYS);
+                    """, new String[] {"id"});
             ps.setInt(1, trainId);
             ps.setInt(2, nextNum);
             ps.setString(3, req.carriageType() != null ? req.carriageType() : "seat");
@@ -307,13 +306,13 @@ public class TrainAdminController {
         if ("seat".equals(carriageType) && cnt >= 32)
             return ResponseEntity.badRequest().body(Map.of("message", "Toa ghế ngồi tối đa 32 ghế"));
         if ("sleeper".equals(carriageType) && cnt >= 18)
-            return ResponseEntity.badRequest().body(Map.of("message", "Toa ghế nằm tối đa 6 khoang (18 ghế)"));
+            return ResponseEntity.badRequest().body(Map.of("message", "Toa ghế nằm đã đầy (tối đa 18 ghế)"));
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(conn -> {
             PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO train_seats (carriage_id, seat_number, berth_position) VALUES (?, ?, ?)",
-                    Statement.RETURN_GENERATED_KEYS);
+                    new String[] {"id"});
             ps.setInt(1, carriageId);
             ps.setString(2, req.seatNumber());
             ps.setString(3, req.berthPosition());
@@ -377,8 +376,7 @@ public class TrainAdminController {
                 if (seats < 1) errors.add("Toa " + num + " (ghế ngồi) phải có ít nhất 1 ghế");
                 if (seats > 32) errors.add("Toa " + num + " (ghế ngồi) tối đa 32 ghế");
             } else if ("sleeper".equals(type)) {
-                if (seats < 3) errors.add("Toa " + num + " (ghế nằm) phải có ít nhất 1 khoang (3 ghế)");
-                if (seats % 3 != 0) errors.add("Toa " + num + " (ghế nằm) mỗi khoang phải đủ 3 tầng (lower/middle/upper)");
+                if (seats < 2) errors.add("Toa " + num + " (ghế nằm) phải có ít nhất 1 khoang (2 ghế)");
                 if (seats > 18) errors.add("Toa " + num + " (ghế nằm) tối đa 6 khoang (18 ghế)");
             }
         }

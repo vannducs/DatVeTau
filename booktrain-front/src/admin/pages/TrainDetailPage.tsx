@@ -32,16 +32,27 @@ const TYPE_LABEL: Record<string, string> = {
     sleeper: "Ghế nằm",
 };
 
+function getCompartments(seats: SeatDetail[]): SeatDetail[][] {
+    const map = new Map<string, SeatDetail[]>();
+    for (const s of seats) {
+        const key = s.seat_number.includes("-") ? s.seat_number.split("-")[0] : s.seat_number;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(s);
+    }
+    return Array.from(map.values());
+}
+
 export default function TrainDetailPage() {
     const { trainId } = useParams<{ trainId: string }>();
     const navigate = useNavigate();
-    const [train,       setTrain]       = useState<TrainData | null>(null);
-    const [tripStatus,  setTripStatus]  = useState<TripStatus | null>(null);
-    const [loading,     setLoading]     = useState(true);
-    const [selIdx,      setSelIdx]      = useState(0);
-    const [msg,         setMsg]         = useState("");
-    const [errors,      setErrors]      = useState<string[]>([]);
-    const [busy,        setBusy]        = useState(false);
+    const [train,           setTrain]           = useState<TrainData | null>(null);
+    const [tripStatus,      setTripStatus]      = useState<TripStatus | null>(null);
+    const [loading,         setLoading]         = useState(true);
+    const [selIdx,          setSelIdx]          = useState(0);
+    const [msg,             setMsg]             = useState("");
+    const [errors,          setErrors]          = useState<string[]>([]);
+    const [busy,            setBusy]            = useState(false);
+    const [berthsPerKhoang, setBerthsPerKhoang] = useState<2 | 3>(3);
 
     const [carriageEdits, setCarriageEdits] = useState<Record<number, { isVip: boolean; amenities: string }>>({});
     const [typeConfirm, setTypeConfirm] = useState<{ carriageId: number; newType: string } | null>(null);
@@ -134,20 +145,20 @@ export default function TrainDetailPage() {
     async function addSeat() {
         if (!carriage || locked) return;
         const isSleeper = carriage.carriage_type === "sleeper";
+
         if (isSleeper) {
-            const compartmentNum = Math.floor(carriage.seats.length / 3) + 1;
-            const tierLabels = [
-                { pos: "lower",  label: `${compartmentNum.toString().padStart(2, "0")}-L` },
-                { pos: "middle", label: `${compartmentNum.toString().padStart(2, "0")}-M` },
-                { pos: "upper",  label: `${compartmentNum.toString().padStart(2, "0")}-U` },
-            ];
-            if (carriage.seats.length >= 18) { alert("Toa nằm tối đa 6 khoang (18 ghế)"); return; }
+            const compartments = getCompartments(carriage.seats);
+            if (compartments.length >= 6) { alert("Toa nằm tối đa 6 khoang"); return; }
+            const khoangLabel = (compartments.length + 1).toString().padStart(2, "0");
+            const tierLabels = berthsPerKhoang === 2
+                ? [{ pos: "lower", label: `${khoangLabel}-L` }, { pos: "upper", label: `${khoangLabel}-U` }]
+                : [{ pos: "lower", label: `${khoangLabel}-L` }, { pos: "middle", label: `${khoangLabel}-M` }, { pos: "upper", label: `${khoangLabel}-U` }];
             setBusy(true);
             try {
                 for (const t of tierLabels) {
                     await trainAdminApi.addSeat(carriage.id, { seatNumber: t.label, berthPosition: t.pos });
                 }
-                setMsg("Đã thêm khoang");
+                setMsg(`Đã thêm khoang ${compartments.length + 1} (${berthsPerKhoang} giường)`);
                 await fetchTrain();
             } catch (e) {
                 alert(axios.isAxiosError(e) ? (e.response?.data?.message ?? "Lỗi") : "Lỗi");
@@ -169,23 +180,34 @@ export default function TrainDetailPage() {
     async function deleteLastSeat() {
         if (!carriage || locked) return;
         const isSleeper = carriage.carriage_type === "sleeper";
-        const toDelete = isSleeper
-            ? carriage.seats.slice(-3)
-            : [carriage.seats[carriage.seats.length - 1]];
 
-        const label = isSleeper ? "khoang cuối cùng (3 ghế)" : "ghế cuối";
-        if (!confirm(`Xóa ${label}?`)) return;
-
-        setBusy(true);
-        try {
-            for (const s of toDelete) {
-                await trainAdminApi.deleteSeat(s.id);
-            }
-            setMsg(isSleeper ? "Đã xóa khoang" : "Đã xóa ghế");
-            await fetchTrain();
-        } catch (e) {
-            alert(axios.isAxiosError(e) ? (e.response?.data?.message ?? "Lỗi") : "Lỗi");
-        } finally { setBusy(false); }
+        if (isSleeper) {
+            const compartments = getCompartments(carriage.seats);
+            if (compartments.length === 0) return;
+            const lastKhoang = compartments[compartments.length - 1];
+            if (!confirm(`Xóa khoang cuối (${lastKhoang.length} giường)?`)) return;
+            setBusy(true);
+            try {
+                for (const s of lastKhoang) {
+                    await trainAdminApi.deleteSeat(s.id);
+                }
+                setMsg("Đã xóa khoang");
+                await fetchTrain();
+            } catch (e) {
+                alert(axios.isAxiosError(e) ? (e.response?.data?.message ?? "Lỗi") : "Lỗi");
+            } finally { setBusy(false); }
+        } else {
+            if (carriage.seats.length === 0) return;
+            if (!confirm("Xóa ghế cuối?")) return;
+            setBusy(true);
+            try {
+                await trainAdminApi.deleteSeat(carriage.seats[carriage.seats.length - 1].id);
+                setMsg("Đã xóa ghế");
+                await fetchTrain();
+            } catch (e) {
+                alert(axios.isAxiosError(e) ? (e.response?.data?.message ?? "Lỗi") : "Lỗi");
+            } finally { setBusy(false); }
+        }
     }
 
     // ─── Validate ────────────────────────────────────────────────────────────────
@@ -203,12 +225,16 @@ export default function TrainDetailPage() {
     if (!train)  return <div className="admin-empty">Không tìm thấy đoàn tàu</div>;
 
     const isSleeper = carriage?.carriage_type === "sleeper";
-    const compartments: SeatDetail[][] = [];
-    if (carriage && isSleeper) {
-        for (let i = 0; i < carriage.seats.length; i += 3) {
-            compartments.push(carriage.seats.slice(i, i + 3));
-        }
-    }
+    const compartments = (carriage && isSleeper) ? getCompartments(carriage.seats) : [];
+
+    const seatCell = (seat: SeatDetail) => (
+        <div key={seat.id} style={{
+            width: 44, height: 50, borderRadius: 10,
+            border: "1.5px solid #93C5FD", background: "#DBEAFE",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 12, fontWeight: 700, color: "#1E40AF", flexShrink: 0,
+        }}>{seat.seat_number}</div>
+    );
 
     return (
         <div>
@@ -256,11 +282,12 @@ export default function TrainDetailPage() {
             {/* Sơ đồ đoàn tàu */}
             <div className="admin-card" style={{ overflow: "auto" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: "max-content", padding: "4px 0" }}>
+                    {/* Đầu tàu */}
                     <div style={{
                         width: 56, height: 56, background: "#1E2A3B", borderRadius: "8px 4px 4px 8px",
                         display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0
                     }}>
-                        <span className="material-icons-round" style={{ fontSize: 28 }}>directions_railway</span>
+                        <span className="material-icons-round" style={{ fontSize: 28 }}>train</span>
                     </div>
 
                     {train.carriages.map((c, idx) => (
@@ -368,49 +395,39 @@ export default function TrainDetailPage() {
                         </button>
                     </div>
 
-                    {/* Sơ đồ ghế */}
+                    {/* ── Sơ đồ ghế ngồi ── */}
                     {!isSleeper ? (
                         <div>
-                            <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>
+                            <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 10 }}>
                                 Sơ đồ ghế ngồi (tối đa 32 ghế)
                             </div>
-                            <div style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(2, 48px) 24px repeat(2, 48px)",
-                                gap: 4, maxWidth: 240
-                            }}>
-                                {Array.from({ length: Math.max(Math.ceil(carriage.seats.length / 4), 1) }).map((_, row) => {
-                                    const rowSeats = carriage.seats.slice(row * 4, row * 4 + 4);
-                                    return (
-                                        <>
-                                            {[0, 1].map(col => {
-                                                const seat = rowSeats[col];
-                                                return seat ? (
-                                                    <div key={seat.id} style={{
-                                                        width: 48, height: 36, background: "#DBEAFE",
-                                                        border: "1px solid #93C5FD", borderRadius: 4,
-                                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                                        fontSize: 11, fontWeight: 600, color: "#1E40AF"
-                                                    }}>{seat.seat_number}</div>
-                                                ) : <div key={`e-${row}-${col}`} style={{ width: 48, height: 36 }} />;
-                                            })}
-                                            <div key={`aisle-${row}`} style={{ width: 24, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                                <div style={{ width: 1, height: "100%", background: "#E5E7EB" }} />
-                                            </div>
-                                            {[2, 3].map(col => {
-                                                const seat = rowSeats[col];
-                                                return seat ? (
-                                                    <div key={seat.id} style={{
-                                                        width: 48, height: 36, background: "#DBEAFE",
-                                                        border: "1px solid #93C5FD", borderRadius: 4,
-                                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                                        fontSize: 11, fontWeight: 600, color: "#1E40AF"
-                                                    }}>{seat.seat_number}</div>
-                                                ) : <div key={`e-${row}-${col}`} style={{ width: 48, height: 36 }} />;
-                                            })}
-                                        </>
-                                    );
-                                })}
+                            <div style={{ overflowX: "auto" }}>
+                                <div style={{
+                                    display: "inline-flex", flexDirection: "column",
+                                    border: "3px solid #BFDBFE", borderRadius: 10,
+                                    padding: "14px 18px", background: "#fff",
+                                }}>
+                                    {/* Hàng trên */}
+                                    <div style={{ display: "flex", gap: 5, paddingBottom: 8 }}>
+                                        {carriage.seats.length === 0
+                                            ? <span style={{ fontSize: 13, color: "#9CA3AF", lineHeight: "50px" }}>Chưa có ghế</span>
+                                            : carriage.seats.slice(0, Math.ceil(carriage.seats.length / 2)).map(seatCell)}
+                                    </div>
+                                    {/* Hành lang */}
+                                    <div style={{
+                                        textAlign: "center", fontSize: 11, fontWeight: 600,
+                                        letterSpacing: 2, color: "#374151",
+                                        borderTop: "1px dashed #CBD5E1",
+                                        borderBottom: "1px dashed #CBD5E1",
+                                        padding: "5px 0", margin: "0 0 8px",
+                                    }}>
+                                        H À N H &nbsp; L A N G
+                                    </div>
+                                    {/* Hàng dưới */}
+                                    <div style={{ display: "flex", gap: 5 }}>
+                                        {carriage.seats.slice(Math.ceil(carriage.seats.length / 2)).map(seatCell)}
+                                    </div>
+                                </div>
                             </div>
                             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                                 <button className="admin-btn admin-btn-outline admin-btn-sm"
@@ -426,39 +443,54 @@ export default function TrainDetailPage() {
                             </div>
                         </div>
                     ) : (
+                    /* ── Sơ đồ giường nằm ── */
                         <div>
-                            <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>
-                                Sơ đồ khoang nằm (tối đa 6 khoang • {compartments.length} khoang hiện có)
+                            <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+                                <span style={{ fontSize: 12, color: "#6B7280" }}>
+                                    Sơ đồ khoang nằm (tối đa 6 khoang • {compartments.length} khoang hiện có)
+                                </span>
+                                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                                    <span style={{ fontWeight: 600, color: "#374151" }}>Giường/khoang mới:</span>
+                                    <select
+                                        value={berthsPerKhoang}
+                                        disabled={locked}
+                                        onChange={e => setBerthsPerKhoang(Number(e.target.value) as 2 | 3)}
+                                        className="admin-form-select"
+                                        style={{ padding: "2px 8px", fontSize: 13, width: "auto" }}>
+                                        <option value={2}>2 giường</option>
+                                        <option value={3}>3 giường</option>
+                                    </select>
+                                </label>
                             </div>
+
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                {compartments.length === 0 && (
+                                    <div style={{ color: "#9CA3AF", fontSize: 13 }}>
+                                        Chưa có khoang. Bấm "Thêm khoang" để bắt đầu.
+                                    </div>
+                                )}
                                 {compartments.map((comp, idx) => (
                                     <div key={idx} style={{
-                                        border: "1.5px solid #D1D5DB", borderRadius: 6, padding: 8,
-                                        minWidth: 80, background: "#F9FAFB"
+                                        border: "1.5px solid #D1D5DB", borderRadius: 8,
+                                        padding: "8px 10px", minWidth: 76, background: "#F9FAFB", flexShrink: 0,
                                     }}>
                                         <div style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
                                             Khoang {idx + 1}
                                         </div>
-                                        {["upper", "middle", "lower"].map(tier => {
-                                            const seat = comp.find(s => s.berth_position === tier);
-                                            return (
-                                                <div key={tier} style={{
-                                                    height: 28, background: seat ? "#E0F2FE" : "#F3F4F6",
-                                                    border: seat ? "1px solid #7DD3FC" : "1px dashed #D1D5DB",
-                                                    borderRadius: 4, marginBottom: 4, display: "flex",
-                                                    alignItems: "center", justifyContent: "center", fontSize: 10,
-                                                    fontWeight: 600, color: seat ? "#0369A1" : "#9CA3AF"
-                                                }}>
-                                                    {seat ? seat.seat_number : `${tier} (trống)`}
-                                                </div>
-                                            );
-                                        })}
+                                        {comp.map(seat => (
+                                            <div key={seat.id} style={{
+                                                height: 28, background: "#E0F2FE",
+                                                border: "1px solid #7DD3FC", borderRadius: 4, marginBottom: 4,
+                                                display: "flex", alignItems: "center", justifyContent: "center",
+                                                fontSize: 11, fontWeight: 600, color: "#0369A1",
+                                            }}>
+                                                {seat.seat_number}
+                                            </div>
+                                        ))}
                                     </div>
                                 ))}
-                                {compartments.length === 0 && (
-                                    <div style={{ color: "#9CA3AF", fontSize: 13 }}>Chưa có khoang nào. Bấm "Thêm khoang" để bắt đầu.</div>
-                                )}
                             </div>
+
                             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                                 <button className="admin-btn admin-btn-outline admin-btn-sm"
                                     onClick={addSeat} disabled={busy || locked || compartments.length >= 6}>

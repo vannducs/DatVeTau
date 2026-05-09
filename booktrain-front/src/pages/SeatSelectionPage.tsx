@@ -116,13 +116,29 @@ export default function SeatSelectionPage() {
     }
 
     function renderSleeperCarriage(seats: SeatDTO[]) {
-        const displaySeats = seats.slice(0, 18); // max 6 khoang × 3
-        const compartments: SeatDTO[][] = [];
-        for (let i = 0; i < displaySeats.length; i += 3) {
-            compartments.push(displaySeats.slice(i, i + 3));
+        // Group by khoang prefix (e.g., "01" from "01-L"). Fall back to index-based
+        // grouping for legacy data that lacks the "-X" suffix format.
+        const hasPrefixFormat = seats.filter(s => s.seatNumber.includes("-")).length > seats.length / 2;
+
+        let compartments: SeatDTO[][];
+        if (hasPrefixFormat) {
+            const map = new Map<string, SeatDTO[]>();
+            for (const s of seats) {
+                const key = s.seatNumber.split("-")[0];
+                if (!map.has(key)) map.set(key, []);
+                map.get(key)!.push(s);
+            }
+            compartments = Array.from(map.values()).slice(0, 6);
+        } else {
+            const displaySeats = seats.slice(0, 18);
+            compartments = [];
+            for (let i = 0; i < displaySeats.length; i += 3) {
+                compartments.push(displaySeats.slice(i, i + 3));
+            }
         }
 
-        const tierLabels = ["Tầng 1", "Tầng 2", "Tầng 3"];
+        const maxBerths = compartments.reduce((m, c) => Math.max(m, c.length), 2);
+        const tierLabels = ["Tầng 1", "Tầng 2", "Tầng 3"].slice(0, maxBerths);
 
         return (
             <div className="ss-sleeper-wrap">
@@ -136,7 +152,7 @@ export default function SeatSelectionPage() {
                     <div className="ss-compartments">
                         {compartments.map((comp, idx) => (
                             <div key={idx} className="ss-compartment">
-                                {Array.from({ length: 3 }).map((_, row) => {
+                                {Array.from({ length: maxBerths }).map((_, row) => {
                                     const seat = comp[row];
                                     if (!seat) return <div key={row} className="ss-berth ss-berth--empty" />;
                                     return (

@@ -73,6 +73,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/trips/**").permitAll()
                         .requestMatchers("/api/payment/**").permitAll()
                         .requestMatchers("/api/booking/confirm").permitAll()
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/orders/**").authenticated()
                         .anyRequest().authenticated()
