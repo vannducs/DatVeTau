@@ -209,8 +209,8 @@ export default function SeatSelectionPage() {
                     <div className="ss-carriage-bar-inner">
                         {/* Đầu tàu */}
                         <div className="ss-locomotive">
-                            <span className="material-icons-round">train</span>
-                            <span className="ss-locomotive-label">Đầu tàu</span>
+                            <img src="/images/train.jpg" alt="Đầu tàu"
+                                style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }} />
                         </div>
 
                         {carriages.map(c => {

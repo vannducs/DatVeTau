@@ -72,14 +72,12 @@ export default function TrainsPage() {
                     <div className="admin-page-subtitle">Tổng: {trains.length} đoàn tàu</div>
                 </div>
                 <button className="admin-btn admin-btn-primary" onClick={() => { setShowModal(true); setError(""); }}>
-                    <span className="material-icons-round" style={{ fontSize: 18 }}>add</span>
                     Thêm tàu mới
                 </button>
             </div>
 
             {msg && (
                 <div className="admin-alert admin-alert-success" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="material-icons-round" style={{ fontSize: 16 }}>check_circle</span>
                     {msg}
                 </div>
             )}
@@ -128,7 +126,6 @@ export default function TrainsPage() {
                                                 disabled={t.has_active_trip}
                                                 title={t.has_active_trip ? "Tàu đang chạy, không thể chỉnh sửa" : ""}
                                             >
-                                                <span className="material-icons-round" style={{ fontSize: 14 }}>edit</span>
                                                 Chi tiết
                                             </button>
                                             <button
@@ -136,7 +133,7 @@ export default function TrainsPage() {
                                                 onClick={() => handleDelete(t.id, t.train_code)}
                                                 disabled={t.has_active_trip}
                                             >
-                                                <span className="material-icons-round" style={{ fontSize: 14 }}>delete</span>
+                                                Xóa
                                             </button>
                                         </div>
                                     </td>
@@ -153,9 +150,7 @@ export default function TrainsPage() {
                     <div className="admin-modal" onClick={e => e.stopPropagation()}>
                         <div className="admin-modal-header">
                             <span className="admin-modal-title">Thêm đoàn tàu mới</span>
-                            <button className="admin-modal-close" onClick={() => setShowModal(false)}>
-                                <span className="material-icons-round" style={{ fontSize: 18 }}>close</span>
-                            </button>
+                            <button className="admin-modal-close" onClick={() => setShowModal(false)}>✕</button>
                         </div>
 
                         {error && <div className="admin-alert admin-alert-error">{error}</div>}

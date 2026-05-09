@@ -286,7 +286,6 @@ export default function TripsPage() {
                     <div className="admin-page-subtitle">Tổng: {total} chuyến</div>
                 </div>
                 <button className="admin-btn admin-btn-primary" onClick={openWizard}>
-                    <span className="material-icons-round" style={{ fontSize: 18 }}>add</span>
                     Lên kế hoạch mới
                 </button>
             </div>
@@ -365,7 +364,6 @@ export default function TripsPage() {
                                         {t.status === "open" && (
                                             <button className="admin-btn admin-btn-danger admin-btn-sm"
                                                 onClick={() => openCancel(t)}>
-                                                <span className="material-icons-round" style={{ fontSize: 14 }}>cancel</span>
                                                 Hủy kế hoạch
                                             </button>
                                         )}
@@ -402,9 +400,7 @@ export default function TripsPage() {
                         {/* Header */}
                         <div className="admin-modal-header">
                             <span className="admin-modal-title">Lên kế hoạch khởi hành mới</span>
-                            <button className="admin-modal-close" onClick={() => setShowWizard(false)}>
-                                <span className="material-icons-round" style={{ fontSize: 18 }}>close</span>
-                            </button>
+                            <button className="admin-modal-close" onClick={() => setShowWizard(false)}>✕</button>
                         </div>
 
                         {/* Step indicator */}
@@ -447,12 +443,10 @@ export default function TripsPage() {
                                 {selTrain && trainStatus && (
                                     trainStatus.hasActiveTrip ? (
                                         <div className="admin-alert admin-alert-error" style={{ marginBottom: 12 }}>
-                                            <span className="material-icons-round" style={{ fontSize: 15, verticalAlign: "middle", marginRight: 6 }}>warning</span>
                                             Tàu này đang có kế hoạch chưa hoàn thành. Vui lòng đợi chuyến hiện tại kết thúc hoặc hủy kế hoạch trước.
                                         </div>
                                     ) : (
                                         <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 6, padding: "8px 12px", marginBottom: 12, fontSize: 13 }}>
-                                            <span className="material-icons-round" style={{ fontSize: 14, verticalAlign: "middle", color: "#16A34A", marginRight: 6 }}>check_circle</span>
                                             <span>{selTrain.train_name} • {selTrain.carriage_count} toa • {stations.length} ga</span>
                                             <span style={{ color: "#6B7280", marginLeft: 12 }}>
                                                 Có thể lên kế hoạch từ{" "}
@@ -537,8 +531,7 @@ export default function TripsPage() {
 
                                 {arrivalStr && (
                                     <div style={{ background: "#EFF6FF", padding: "10px 14px", borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
-                                        <span className="material-icons-round" style={{ fontSize: 14, verticalAlign: "middle", color: "#2F6FED" }}>schedule</span>
-                                        {" "}Giờ đến dự kiến: <strong>{arrivalStr}</strong>
+                                        Giờ đến dự kiến: <strong>{arrivalStr}</strong>
                                         {duration && <span style={{ color: "#6B7280" }}> ({Math.floor(duration / 60)}h{duration % 60}m)</span>}
                                     </div>
                                 )}
@@ -643,7 +636,6 @@ export default function TripsPage() {
                                 <div className="admin-modal-actions">
                                     <button className="admin-btn admin-btn-outline" onClick={() => setStep(3)}>Quay lại</button>
                                     <button className="admin-btn admin-btn-primary" onClick={handleConfirmCreate}>
-                                        <span className="material-icons-round" style={{ fontSize: 16 }}>check</span>
                                         Xác nhận lên kế hoạch
                                     </button>
                                 </div>
@@ -659,9 +651,7 @@ export default function TripsPage() {
                     <div className="admin-modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
                         <div className="admin-modal-header">
                             <span className="admin-modal-title">Hủy kế hoạch</span>
-                            <button className="admin-modal-close" onClick={() => setCancelInfo(null)}>
-                                <span className="material-icons-round" style={{ fontSize: 18 }}>close</span>
-                            </button>
+                            <button className="admin-modal-close" onClick={() => setCancelInfo(null)}>✕</button>
                         </div>
 
                         <div className="admin-alert admin-alert-error" style={{ marginBottom: 12 }}>

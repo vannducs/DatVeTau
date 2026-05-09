@@ -244,7 +244,6 @@ export default function TrainDetailPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <button className="admin-btn admin-btn-outline admin-btn-sm"
                             onClick={() => navigate("/admin/trains")}>
-                            <span className="material-icons-round" style={{ fontSize: 14 }}>arrow_back</span>
                             Danh sách tàu
                         </button>
                         <div className="admin-page-title">{train.train_code} — {train.train_name}</div>
@@ -252,7 +251,6 @@ export default function TrainDetailPage() {
                     <div className="admin-page-subtitle">{train.carriages.length} toa • {train.train_type}</div>
                 </div>
                 <button className="admin-btn admin-btn-outline" onClick={handleValidate}>
-                    <span className="material-icons-round" style={{ fontSize: 16 }}>verified</span>
                     Kiểm tra hợp lệ
                 </button>
             </div>
@@ -264,7 +262,6 @@ export default function TrainDetailPage() {
                     padding: "12px 16px", marginBottom: 16,
                     display: "flex", alignItems: "center", gap: 10
                 }}>
-                    <span className="material-icons-round" style={{ fontSize: 20, color: "#D97706" }}>warning</span>
                     <span style={{ fontWeight: 600, color: "#92400E" }}>
                         Tàu đang có kế hoạch khởi hành. Không thể chỉnh sửa toa tàu và ghế.
                     </span>
@@ -284,10 +281,13 @@ export default function TrainDetailPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: "max-content", padding: "4px 0" }}>
                     {/* Đầu tàu */}
                     <div style={{
-                        width: 56, height: 56, background: "#1E2A3B", borderRadius: "8px 4px 4px 8px",
-                        display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0
+                        width: 60, height: 40, borderRadius: "8px 4px 4px 8px",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        flexShrink: 0, background: "#F1F5F9", border: "1.5px solid #E5E7EB",
+                        overflow: "hidden",
                     }}>
-                        <span className="material-icons-round" style={{ fontSize: 28 }}>train</span>
+                        <img src="/images/train.jpg" alt="Đầu tàu"
+                            style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }} />
                     </div>
 
                     {train.carriages.map((c, idx) => (
@@ -320,7 +320,6 @@ export default function TrainDetailPage() {
                             onClick={addCarriage}
                             disabled={busy || locked}
                             style={{ marginLeft: 12, flexShrink: 0 }}>
-                            <span className="material-icons-round" style={{ fontSize: 14 }}>add</span>
                             Thêm toa
                         </button>
                     )}
@@ -340,7 +339,6 @@ export default function TrainDetailPage() {
                         <button className="admin-btn admin-btn-danger admin-btn-sm"
                             onClick={() => deleteCarriage(carriage.id, carriage.carriage_number)}
                             disabled={busy || locked}>
-                            <span className="material-icons-round" style={{ fontSize: 14 }}>delete</span>
                             Xóa toa
                         </button>
                     </div>
@@ -390,7 +388,6 @@ export default function TrainDetailPage() {
                         <button className="admin-btn admin-btn-primary admin-btn-sm"
                             onClick={() => saveCarriageProps(carriage.id)}
                             disabled={busy || locked}>
-                            <span className="material-icons-round" style={{ fontSize: 14 }}>save</span>
                             Lưu toa
                         </button>
                     </div>
@@ -432,12 +429,10 @@ export default function TrainDetailPage() {
                             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                                 <button className="admin-btn admin-btn-outline admin-btn-sm"
                                     onClick={addSeat} disabled={busy || locked || carriage.seats.length >= 32}>
-                                    <span className="material-icons-round" style={{ fontSize: 14 }}>add</span>
                                     Thêm ghế
                                 </button>
                                 <button className="admin-btn admin-btn-outline admin-btn-sm"
                                     onClick={deleteLastSeat} disabled={busy || locked || carriage.seats.length === 0}>
-                                    <span className="material-icons-round" style={{ fontSize: 14 }}>remove</span>
                                     Xóa ghế cuối
                                 </button>
                             </div>
@@ -494,12 +489,10 @@ export default function TrainDetailPage() {
                             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                                 <button className="admin-btn admin-btn-outline admin-btn-sm"
                                     onClick={addSeat} disabled={busy || locked || compartments.length >= 6}>
-                                    <span className="material-icons-round" style={{ fontSize: 14 }}>add</span>
                                     Thêm khoang
                                 </button>
                                 <button className="admin-btn admin-btn-outline admin-btn-sm"
                                     onClick={deleteLastSeat} disabled={busy || locked || compartments.length === 0}>
-                                    <span className="material-icons-round" style={{ fontSize: 14 }}>remove</span>
                                     Xóa khoang cuối
                                 </button>
                             </div>
@@ -514,9 +507,7 @@ export default function TrainDetailPage() {
                     <div className="admin-modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
                         <div className="admin-modal-header">
                             <span className="admin-modal-title">Đổi loại toa</span>
-                            <button className="admin-modal-close" onClick={() => setTypeConfirm(null)}>
-                                <span className="material-icons-round" style={{ fontSize: 18 }}>close</span>
-                            </button>
+                            <button className="admin-modal-close" onClick={() => setTypeConfirm(null)}>✕</button>
                         </div>
                         <div className="admin-alert admin-alert-error" style={{ margin: "0 0 16px" }}>
                             Đổi loại toa sẽ <strong>XÓA TOÀN BỘ ghế</strong> hiện tại trong toa này. Bạn phải thêm lại ghế/khoang mới sau khi đổi.
