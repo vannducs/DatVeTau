@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, User, Phone, Train } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User, Phone, Train, Calendar } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import "./auth.css";
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", password: "", fullName: "", phone: "" });
+  const [form, setForm] = useState({ email: "", password: "", fullName: "", phone: "", dateOfBirth: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,7 +21,7 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
     try {
-      await register(form);
+      await register({ ...form, phoneNumber: form.phone });
       navigate("/");
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || "Đăng ký thất bại");
@@ -85,6 +85,19 @@ export default function RegisterPage() {
                 onChange={handleChange}
               />
             </div>
+
+          <div className="form-group">
+            <label>Ngày sinh</label>
+            <div className="input-wrap">
+              <Calendar size={18} className="input-icon" />
+              <input
+                name="dateOfBirth"
+                type="date"
+                value={form.dateOfBirth}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
           </div>
 
           <div className="form-group">

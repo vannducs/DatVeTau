@@ -9,9 +9,14 @@ interface TripCardProps {
     trip: TripResult;
     originId: number;
     destinationId: number;
+    adult?: number;
+    child?: number;
+    elderly?: number;
+    student?: number;
+    union?: number;
 }
 
-export default function TripCard({ trip, originId, destinationId }: TripCardProps) {
+export default function TripCard({ trip, originId, destinationId, adult = 1, child = 0, elderly = 0, student = 0, union = 0 }: TripCardProps) {
     const { isAuthenticated } = useAuth();
     const navigate = useNavigate();
     const [showModal, setShowModal] = useState(false);
@@ -19,16 +24,18 @@ export default function TripCard({ trip, originId, destinationId }: TripCardProp
     const formatPrice = (price: number) =>
         price.toLocaleString("vi-VN") + "đ";
 
+    const passengerParams = `&adult=${adult}&child=${child}&elderly=${elderly}&student=${student}&union=${union}`;
+
     function handleBooking() {
         if (!isAuthenticated) {
             setShowModal(true);
             return;
         }
-        navigate(`/trains/booking/${trip.id}?originId=${originId}&destinationId=${destinationId}`);
+        navigate(`/trains/booking/${trip.id}?originId=${originId}&destinationId=${destinationId}${passengerParams}`);
     }
 
     function handleConfirmLogin() {
-        sessionStorage.setItem("redirectAfterLogin", `/trains/booking/${trip.id}?originId=${originId}&destinationId=${destinationId}`);
+        sessionStorage.setItem("redirectAfterLogin", `/trains/booking/${trip.id}?originId=${originId}&destinationId=${destinationId}${passengerParams}`);
         setShowModal(false);
         navigate("/login");
     }

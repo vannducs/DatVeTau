@@ -29,6 +29,12 @@ export default function SeatSelectionPage() {
     const [searchParams] = useSearchParams();
     const originId      = Number(searchParams.get("originId"));
     const destinationId = Number(searchParams.get("destinationId"));
+    const adult   = Number(searchParams.get("adult")  || 1);
+    const child   = Number(searchParams.get("child")  || 0);
+    const elderly = Number(searchParams.get("elderly")|| 0);
+    const student = Number(searchParams.get("student")|| 0);
+    const union   = Number(searchParams.get("union")  || 0);
+    const totalPassengers = adult + child + elderly + student + union;
 
     const [carriages, setCarriages] = useState<CarriageGroup[]>([]);
     const [selectedCarriage, setSelectedCarriage] = useState<CarriageGroup | null>(null);
@@ -307,12 +313,17 @@ export default function SeatSelectionPage() {
                         </span>
                     </div>
                     <button className="ss-footer-continue"
-                        disabled={selectedSeats.length === 0}
+                        disabled={selectedSeats.length === 0 || selectedSeats.length !== totalPassengers}
                         onClick={() => {
                             const seatIds = selectedSeats.map(s => s.id).join(",");
-                            navigate(`/trains/passenger-info?tripId=${tripId}&seatIds=${seatIds}&originId=${originId}&destinationId=${destinationId}`);
+                            navigate(
+                                `/trains/passenger-info?tripId=${tripId}&seatIds=${seatIds}&originId=${originId}&destinationId=${destinationId}` +
+                                `&adult=${adult}&child=${child}&elderly=${elderly}&student=${student}&union=${union}`
+                            );
                         }}>
-                        Tiếp tục
+                        {selectedSeats.length === totalPassengers
+                            ? "Tiếp tục"
+                            : `Chọn thêm ${totalPassengers - selectedSeats.length} ghế`}
                     </button>
                 </div>
             </div>

@@ -24,6 +24,7 @@ export const authApi = {
     password: string; 
     fullName: string; 
     phoneNumber?: string;
+    dateOfBirth?: string;
     }) =>api.post("/auth/register", data),
 
   getMe: () => api.get("/auth/me"),

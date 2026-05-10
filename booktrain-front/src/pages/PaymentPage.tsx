@@ -10,7 +10,9 @@ interface PassengerForm {
     seatNumber: string;
     carriageType: string;
     carriageNumber: number;
+    basePrice: number;
     ticketPrice: number;
+    passengerType: string;   // "adult" | "child" | "elderly" | "student" | "union"
     passengerName: string;
     idNumber: string;
     phoneNumber: string;
@@ -33,6 +35,14 @@ const CARRIAGE_LABEL: Record<string, string> = {
     hard_sleeper: "Giường khoang 6",
     soft_sleeper: "Giường khoang 4",
     vip_ac_sleeper: "Giường VIP",
+};
+
+const TYPE_LABEL: Record<string, string> = {
+    adult:   "Người lớn",
+    child:   "Trẻ em",
+    elderly: "Người cao tuổi",
+    student: "Sinh viên",
+    union:   "Đoàn viên Công đoàn",
 };
 
 const TOTAL_SECONDS = 15 * 60;
@@ -196,7 +206,7 @@ export default function PaymentPage() {
                             <div className="pay-trip-meta">
                                 <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                                     <span className="material-icons-round" style={{ fontSize: 16 }}>group</span>
-                                    {bookingData.passengers.length} Người lớn
+                                    {bookingData.passengers.length} hành khách
                                 </span>
                                 <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                                     <span className="material-icons-round" style={{ fontSize: 16 }}>confirmation_number</span>
@@ -261,20 +271,33 @@ export default function PaymentPage() {
                                 <h3>Chi Tiết Giá</h3>
                             </div>
 
-                            {bookingData.passengers.map((p, i) => (
-                                <div key={i} className="pay-summary-item">
-                                    <div className="pay-summary-item-label">
-                                        <span>Người lớn {i + 1}</span>
-                                        <span className="pay-summary-seat">
-                                            Toa {p.carriageNumber} - Ghế {p.seatNumber}&nbsp;
-                                            ({CARRIAGE_LABEL[p.carriageType]})
-                                        </span>
+                            {bookingData.passengers.map((p, i) => {
+                                const label = TYPE_LABEL[p.passengerType] ?? "Hành khách";
+                                const sameTypeBefore = bookingData.passengers.slice(0, i).filter(x => x.passengerType === p.passengerType).length;
+                                const displayIdx = sameTypeBefore + 1;
+                                const hasDiscount = p.basePrice && p.basePrice > p.ticketPrice;
+                                return (
+                                    <div key={i} className="pay-summary-item">
+                                        <div className="pay-summary-item-label">
+                                            <span>{label} {displayIdx}</span>
+                                            <span className="pay-summary-seat">
+                                                Toa {p.carriageNumber} - Ghế {p.seatNumber}&nbsp;
+                                                ({CARRIAGE_LABEL[p.carriageType]})
+                                            </span>
+                                        </div>
+                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                                            {hasDiscount && (
+                                                <span style={{ fontSize: 11, color: "#9ca3af", textDecoration: "line-through", whiteSpace: "nowrap" }}>
+                                                    {p.basePrice!.toLocaleString("vi-VN")}đ
+                                                </span>
+                                            )}
+                                            <span className="pay-summary-price">
+                                                {p.ticketPrice.toLocaleString("vi-VN")}đ
+                                            </span>
+                                        </div>
                                     </div>
-                                    <span className="pay-summary-price">
-                                        {p.ticketPrice.toLocaleString("vi-VN")}đ
-                                    </span>
-                                </div>
-                            ))}
+                                );
+                            })}
 
                             <div className="pay-summary-item">
                                 <span>Phí dịch vụ</span>

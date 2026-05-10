@@ -27,6 +27,7 @@ interface AuthContextType {
         password: string;
         fullName: string;
         phoneNumber?: string;
+        dateOfBirth?: string;
     }) => Promise<void>;
     logout: () => void;
 }
@@ -75,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password: string;
         fullName: string;
         phoneNumber?: string;
+        dateOfBirth?: string;
     }) {
         const res = await authApi.register(data);
         if (!res.data.success) throw new Error(res.data.message);

@@ -322,6 +322,49 @@
     font-weight: 700;
     color: #ef4444;
 }
+
+/* Badge giảm giá trong header card hành khách */
+.pi-discount-badge {
+    display: inline-block;
+    background: #16a34a;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+    letter-spacing: 0.3px;
+}
+
+/* Cột giá trong tóm tắt */
+.pi-summary-price-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+/* Giá gốc bị gạch ngang */
+.pi-summary-base-price {
+    font-size: 11px;
+    color: #9ca3af;
+    text-decoration: line-through;
+    white-space: nowrap;
+}
+
+/* Badge % giảm trong tóm tắt */
+.pi-summary-discount-badge {
+    display: inline-block;
+    background: #dcfce7;
+    color: #16a34a;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
 /* Popup xác nhận */
 .pi-confirm-overlay {
     position: fixed;

@@ -59,7 +59,11 @@ export default function FormTrain({
 
   function handleSearch() {
     if (!departure || !destination || !departureDate) return;
-    navigate(`/trains/search?originId=${departure.id}&destinationId=${destination.id}&date=${departureDate}`);
+    const { adult, child, elderly, student, union } = passengerCount;
+    navigate(
+      `/trains/search?originId=${departure.id}&destinationId=${destination.id}&date=${departureDate}` +
+      `&adult=${adult}&child=${child}&elderly=${elderly}&student=${student}&union=${union}`
+    );
   }
 
   return (

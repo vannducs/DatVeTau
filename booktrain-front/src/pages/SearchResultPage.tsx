@@ -18,6 +18,11 @@ export default function SearchResultPage() {
     const originId = Number(params.get("originId"));
     const destinationId = Number(params.get("destinationId"));
     const date = params.get("date") || "";
+    const adult   = Number(params.get("adult")   || 1);
+    const child   = Number(params.get("child")   || 0);
+    const elderly = Number(params.get("elderly") || 0);
+    const student = Number(params.get("student") || 0);
+    const union   = Number(params.get("union")   || 0);
 
     const [trips, setTrips] = useState<TripResult[]>([]);
     const [loading, setLoading] = useState(true);
@@ -48,7 +53,7 @@ export default function SearchResultPage() {
         if (!d) return "";
         const [y, m, day] = d.split("-");
         const dateObj = new Date(Number(y), Number(m) - 1, Number(day));
-        const thu = ["CN","T2","T3","T4","T5","T6","T7"][dateObj.getDay()];
+        const thu = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][dateObj.getDay()];
         return `${thu}, ${day}/${m}`;
     };
 
@@ -56,8 +61,8 @@ export default function SearchResultPage() {
     const filtered = trips.filter(trip => {
         if (!filterHour) return true;
         const hour = parseInt(trip.departureTime.split(":")[0]);
-        if (filterHour === "sang_som")  return hour >= 0  && hour < 6;
-        if (filterHour === "buoi_sang") return hour >= 6  && hour < 12;
+        if (filterHour === "sang_som") return hour >= 0 && hour < 6;
+        if (filterHour === "buoi_sang") return hour >= 6 && hour < 12;
         if (filterHour === "buoi_chieu") return hour >= 12 && hour < 18;
         if (filterHour === "buoi_toi") return hour >= 18 && hour <= 23;
         return true;
@@ -84,7 +89,7 @@ export default function SearchResultPage() {
             <div className="search-result-searchbox">
                 <SearchBox
                     defaultTab="train"
-                    initialOrigin={origin}           
+                    initialOrigin={origin}
                     initialDestination={destination}
                     initialDate={date}
                 />
@@ -110,10 +115,10 @@ export default function SearchResultPage() {
                             <h4 className="filter-section-title">Giờ đi</h4>
                             <div className="filter-hour-grid">
                                 {[
-                                    { key: "sang_som",    label: "Sáng sớm",   sub: "00:00 - 06:00" },
-                                    { key: "buoi_sang",   label: "Buổi sáng",  sub: "06:01 - 12:00" },
-                                    { key: "buoi_chieu",  label: "Buổi chiều", sub: "12:01 - 18:00" },
-                                    { key: "buoi_toi",    label: "Buổi tối",   sub: "18:01 - 23:59" },
+                                    { key: "sang_som", label: "Sáng sớm", sub: "00:00 - 06:00" },
+                                    { key: "buoi_sang", label: "Buổi sáng", sub: "06:01 - 12:00" },
+                                    { key: "buoi_chieu", label: "Buổi chiều", sub: "12:01 - 18:00" },
+                                    { key: "buoi_toi", label: "Buổi tối", sub: "18:01 - 23:59" },
                                 ].map(f => (
                                     <button
                                         key={f.key}
@@ -135,9 +140,9 @@ export default function SearchResultPage() {
                         <div className="sort-bar">
                             <span className="sort-label">Sắp xếp</span>
                             {[
-                                { key: "price_asc",   label: "Giá thấp nhất" },
-                                { key: "price_desc",  label: "Giá cao nhất" },
-                                { key: "depart_asc",  label: "Giờ đi sớm nhất" },
+                                { key: "price_asc", label: "Giá thấp nhất" },
+                                { key: "price_desc", label: "Giá cao nhất" },
+                                { key: "depart_asc", label: "Giờ đi sớm nhất" },
                                 { key: "depart_desc", label: "Giờ đi muộn nhất" },
                             ].map(s => (
                                 <button
@@ -158,7 +163,7 @@ export default function SearchResultPage() {
                             </div>
                         ) : sorted.length === 0 ? (
                             <div className="result-status">
-                                 Không tìm thấy chuyến tàu nào!
+                                Không tìm thấy chuyến tàu nào!
                             </div>
                         ) : (
                             <>
@@ -172,6 +177,11 @@ export default function SearchResultPage() {
                                             trip={trip}
                                             originId={originId}
                                             destinationId={destinationId}
+                                            adult={adult}
+                                            child={child}
+                                            elderly={elderly}
+                                            student={student}
+                                            union={union}
                                         />
                                     ))}
                                 </div>
@@ -180,7 +190,7 @@ export default function SearchResultPage() {
                     </div>
                 </div>
             </div>
-            <HomeFooter/>
+            <HomeFooter />
         </>
     );
 }

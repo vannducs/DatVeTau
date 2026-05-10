@@ -7,12 +7,35 @@ import type { TripResult } from "../types/trip";
 import type { SeatDTO } from "../types/seat";
 import "./passengerInfo.css";
 
+// Loại hành khách
+export type PassengerType = "adult" | "child" | "elderly" | "student" | "union";
+
+// Tỉ lệ giảm giá theo loại
+const DISCOUNT: Record<PassengerType, number> = {
+    adult:   0,
+    child:   0.25,
+    elderly: 0.15,
+    student: 0.10,
+    union:   0.05,
+};
+
+// Nhãn hiển thị
+const TYPE_LABEL: Record<PassengerType, string> = {
+    adult:   "Người lớn",
+    child:   "Trẻ em",
+    elderly: "Người cao tuổi",
+    student: "Sinh viên",
+    union:   "Đoàn viên Công đoàn",
+};
+
 interface PassengerForm {
     seatId: number;
     seatNumber: string;
     carriageType: string;
     carriageNumber: number;
-    ticketPrice: number;
+    basePrice: number;      // Giá gốc từ seat
+    ticketPrice: number;    // Giá sau giảm
+    passengerType: PassengerType;
     passengerName: string;
     idNumber: string;
     phoneNumber: string;
@@ -27,15 +50,37 @@ const CARRIAGE_LABEL: Record<string, string> = {
     vip_ac_sleeper: "Giường VIP",
 };
 
+/** Từ số lượng mỗi loại → tạo mảng loại hành khách theo thứ tự ghế */
+function buildPassengerTypes(
+    adult: number, child: number, elderly: number, student: number, union: number
+): PassengerType[] {
+    const types: PassengerType[] = [];
+    for (let i = 0; i < adult; i++) types.push("adult");
+    for (let i = 0; i < child; i++) types.push("child");
+    for (let i = 0; i < elderly; i++) types.push("elderly");
+    for (let i = 0; i < student; i++) types.push("student");
+    for (let i = 0; i < union; i++) types.push("union");
+    return types;
+}
+
 export default function PassengerInfoPage() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    const tripId      = Number(searchParams.get("tripId"));
-    const seatIds     = searchParams.get("seatIds")?.split(",").map(Number) || [];
-    const originId    = Number(searchParams.get("originId"));
+    const tripId        = Number(searchParams.get("tripId"));
+    const seatIds       = searchParams.get("seatIds")?.split(",").map(Number) || [];
+    const originId      = Number(searchParams.get("originId"));
     const destinationId = Number(searchParams.get("destinationId"));
+
+    // Thông tin loại hành khách từ URL
+    const adult   = Number(searchParams.get("adult")   || 1);
+    const child   = Number(searchParams.get("child")   || 0);
+    const elderly = Number(searchParams.get("elderly") || 0);
+    const student = Number(searchParams.get("student") || 0);
+    const union   = Number(searchParams.get("union")   || 0);
+
+    const passengerTypes = buildPassengerTypes(adult, child, elderly, student, union);
 
     const [trip, setTrip] = useState<TripResult | null>(null);
     const [forms, setForms] = useState<PassengerForm[]>([]);
@@ -53,7 +98,6 @@ export default function PassengerInfoPage() {
             setContactName(user.fullName?.toUpperCase() || "");
             setContactPhone(user.phoneNumber || "");
             setContactEmail(user.email || "");
-            
         }
     }, [user]);
 
@@ -70,18 +114,26 @@ export default function PassengerInfoPage() {
             const allSeats: SeatDTO[] = Object.values(seatsRes.data).flat() as SeatDTO[];
             const chosen = allSeats.filter(s => seatIds.includes(s.id));
 
-            setForms(chosen.map((s, index) => ({
-                seatId: s.id,
-                seatNumber: s.seatNumber,
-                carriageType: s.carriageType,
-                carriageNumber: s.carriageNumber,
-                ticketPrice: s.ticketPrice,
-                // Hành khách đầu tiên tự điền từ user đang đăng nhập
-                passengerName: index === 0 ? (user?.fullName?.toUpperCase() || "") : "",
-                idNumber: "",
-                phoneNumber: index === 0 ? (user?.phoneNumber || "") : "",
-                dateOfBirth: index === 0 ? (user?.dateOfBirth || "") : "",
-            })));
+            setForms(chosen.map((s, index) => {
+                const pType: PassengerType = passengerTypes[index] ?? "adult";
+                const discount = DISCOUNT[pType];
+                const basePrice = s.ticketPrice;
+                const finalPrice = Math.round(basePrice * (1 - discount));
+                return {
+                    seatId: s.id,
+                    seatNumber: s.seatNumber,
+                    carriageType: s.carriageType,
+                    carriageNumber: s.carriageNumber,
+                    basePrice,
+                    ticketPrice: finalPrice,
+                    passengerType: pType,
+                    // Hành khách đầu tiên tự điền từ user đang đăng nhập
+                    passengerName: index === 0 ? (user?.fullName?.toUpperCase() || "") : "",
+                    idNumber: "",
+                    phoneNumber: index === 0 ? (user?.phoneNumber || "") : "",
+                    dateOfBirth: index === 0 ? (user?.dateOfBirth || "") : "",
+                };
+            }));
         }).finally(() => setLoading(false));
     }, [tripId, user]);
 
@@ -95,7 +147,10 @@ export default function PassengerInfoPage() {
         const errs: Record<string, string> = {};
         forms.forEach((f, i) => {
             if (!f.passengerName.trim()) errs[`name_${i}`] = "Vui lòng nhập họ tên";
-            if (!f.idNumber.trim()) errs[`id_${i}`] = "Vui lòng nhập CMND/CCCD";
+            // Trẻ em không cần CCCD
+            if (f.passengerType !== "child" && !f.idNumber.trim()) {
+                errs[`id_${i}`] = "Vui lòng nhập CMND/CCCD";
+            }
         });
         if (!contactName.trim()) errs["contact_name"] = "Vui lòng nhập họ tên liên hệ";
         if (!contactPhone.trim()) errs["contact_phone"] = "Vui lòng nhập số điện thoại";
@@ -183,66 +238,83 @@ export default function PassengerInfoPage() {
                         <div className="pi-section">
                             <h3 className="pi-section-title">Thông tin hành khách</h3>
 
-                            {forms.map((form, index) => (
-                                <div key={form.seatId} className="pi-passenger-card">
-                                    <div className="pi-passenger-header">
-                                        <span className="pi-passenger-label">
-                                            Người lớn {index + 1}
-                                        </span>
-                                        <span className="pi-passenger-seat">
-                                            Toa {form.carriageNumber} • Ghế {form.seatNumber}&nbsp;
-                                            ({CARRIAGE_LABEL[form.carriageType]})
-                                        </span>
-                                    </div>
+                            {forms.map((form, index) => {
+                                const typeLabel = TYPE_LABEL[form.passengerType];
+                                const discount = DISCOUNT[form.passengerType];
+                                const isChild = form.passengerType === "child";
+                                // Đếm số thứ tự trong cùng loại
+                                const sameTypeBefore = forms.slice(0, index).filter(f => f.passengerType === form.passengerType).length;
+                                const displayIndex = sameTypeBefore + 1;
 
-                                    <div className="pi-form-grid">
-                                        <div className="pi-form-group pi-form-group--full">
-                                            <label>
-                                                Họ và tên <span className="pi-required">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                placeholder="VD: NGUYEN VAN A"
-                                                value={form.passengerName}
-                                                onChange={e => updateForm(index, "passengerName", e.target.value.toUpperCase())}
-                                                className={errors[`name_${index}`] ? "pi-input-error" : ""}
-                                            />
-                                            {errors[`name_${index}`] && (
-                                                <span className="pi-error-msg">
-                                                    {errors[`name_${index}`]}
-                                                </span>
+                                return (
+                                    <div key={form.seatId} className="pi-passenger-card">
+                                        <div className="pi-passenger-header">
+                                            <span className="pi-passenger-label">
+                                                {typeLabel} {displayIndex}
+                                                {discount > 0 && (
+                                                    <span className="pi-discount-badge">
+                                                        GIẢM {Math.round(discount * 100)}%
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <span className="pi-passenger-seat">
+                                                Toa {form.carriageNumber} • Ghế {form.seatNumber}&nbsp;
+                                                ({CARRIAGE_LABEL[form.carriageType]})
+                                            </span>
+                                        </div>
+
+                                        <div className="pi-form-grid">
+                                            <div className="pi-form-group pi-form-group--full">
+                                                <label>
+                                                    Họ và tên <span className="pi-required">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="VD: NGUYEN VAN A"
+                                                    value={form.passengerName}
+                                                    onChange={e => updateForm(index, "passengerName", e.target.value.toUpperCase())}
+                                                    className={errors[`name_${index}`] ? "pi-input-error" : ""}
+                                                />
+                                                {errors[`name_${index}`] && (
+                                                    <span className="pi-error-msg">
+                                                        {errors[`name_${index}`]}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Ẩn CCCD nếu là trẻ em */}
+                                            {!isChild && (
+                                                <div className="pi-form-group">
+                                                    <label>
+                                                        Số CMND/CCCD/Hộ chiếu <span className="pi-required">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Nhập số CMND/CCCD"
+                                                        value={form.idNumber}
+                                                        onChange={e => updateForm(index, "idNumber", e.target.value)}
+                                                        className={errors[`id_${index}`] ? "pi-input-error" : ""}
+                                                    />
+                                                    {errors[`id_${index}`] && (
+                                                        <span className="pi-error-msg">
+                                                            {errors[`id_${index}`]}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             )}
-                                        </div>
 
-                                        <div className="pi-form-group">
-                                            <label>
-                                                Số CMND/CCCD/Hộ chiếu <span className="pi-required">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                placeholder="Nhập số CMND/CCCD"
-                                                value={form.idNumber}
-                                                onChange={e => updateForm(index, "idNumber", e.target.value)}
-                                                className={errors[`id_${index}`] ? "pi-input-error" : ""}
-                                            />
-                                            {errors[`id_${index}`] && (
-                                                <span className="pi-error-msg">
-                                                    {errors[`id_${index}`]}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <div className="pi-form-group">
-                                            <label>Ngày sinh</label>
-                                            <input
-                                                type="date"
-                                                value={form.dateOfBirth}
-                                                onChange={e => updateForm(index, "dateOfBirth", e.target.value)}
-                                            />
+                                            <div className="pi-form-group">
+                                                <label>Ngày sinh{isChild && <span className="pi-required"> *</span>}</label>
+                                                <input
+                                                    type="date"
+                                                    value={form.dateOfBirth}
+                                                    onChange={e => updateForm(index, "dateOfBirth", e.target.value)}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {/* Thông tin liên hệ */}
@@ -251,8 +323,6 @@ export default function PassengerInfoPage() {
                             <p className="pi-section-hint">
                                 Hệ thống sẽ xác nhận đặt chỗ, hoàn tiền hoặc đổi lịch qua thông tin này
                             </p>
-
-                           
 
                             <div className="pi-form-grid">
                                 <div className="pi-form-group pi-form-group--full">
@@ -320,19 +390,38 @@ export default function PassengerInfoPage() {
                         <div className="pi-summary-card">
                             <h3 className="pi-summary-title">Chi tiết giá</h3>
 
-                            {forms.map((form, index) => (
-                                <div key={form.seatId} className="pi-summary-item">
-                                    <div className="pi-summary-item-label">
-                                        Người lớn {index + 1}
-                                        <span className="pi-summary-seat">
-                                            Toa {form.carriageNumber} • Ghế {form.seatNumber}
-                                        </span>
+                            {forms.map((form, index) => {
+                                const typeLabel = TYPE_LABEL[form.passengerType];
+                                const discount = DISCOUNT[form.passengerType];
+                                const sameTypeBefore = forms.slice(0, index).filter(f => f.passengerType === form.passengerType).length;
+                                const displayIndex = sameTypeBefore + 1;
+
+                                return (
+                                    <div key={form.seatId} className="pi-summary-item">
+                                        <div className="pi-summary-item-label">
+                                            {typeLabel} {displayIndex}
+                                            {discount > 0 && (
+                                                <span className="pi-summary-discount-badge">
+                                                    -{Math.round(discount * 100)}%
+                                                </span>
+                                            )}
+                                            <span className="pi-summary-seat">
+                                                Toa {form.carriageNumber} • Ghế {form.seatNumber}
+                                            </span>
+                                        </div>
+                                        <div className="pi-summary-price-col">
+                                            {discount > 0 && (
+                                                <span className="pi-summary-base-price">
+                                                    {form.basePrice.toLocaleString("vi-VN")}đ
+                                                </span>
+                                            )}
+                                            <span className="pi-summary-price">
+                                                {form.ticketPrice.toLocaleString("vi-VN")}đ
+                                            </span>
+                                        </div>
                                     </div>
-                                    <span className="pi-summary-price">
-                                        {form.ticketPrice.toLocaleString("vi-VN")}đ
-                                    </span>
-                                </div>
-                            ))}
+                                );
+                            })}
 
                             <div className="pi-summary-divider" />
 
@@ -357,7 +446,7 @@ export default function PassengerInfoPage() {
                         <div className="pi-confirm-summary">
                             {forms.map((f, i) => (
                                 <div key={i} className="pi-confirm-row">
-                                    <span>Hành khách {i + 1}:</span>
+                                    <span>{TYPE_LABEL[f.passengerType]} {i + 1}:</span>
                                     <span>{f.passengerName || "Chưa nhập"}</span>
                                 </div>
                             ))}
