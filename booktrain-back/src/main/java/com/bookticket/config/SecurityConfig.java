@@ -39,15 +39,6 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
-    /**
-     * JwtAuthFilter là @Component nên Spring Boot tự đăng ký nó như servlet filter
-     * (chạy NGOÀI DelegatingFilterProxy). Điều này gây ra double-run:
-     *   1. Chạy ngoài → set SecurityContext
-     *   2. SecurityContextHolderFilter reset SecurityContext về rỗng
-     *   3. Chạy trong Security chain → OncePerRequestFilter thấy đã chạy rồi → skip
-     *   4. SecurityContext trống → 401 mọi endpoint protected
-     * Fix: tắt servlet auto-registration, chỉ để chạy trong Spring Security chain.
-     */
     @Bean
     public FilterRegistrationBean<JwtAuthFilter> jwtFilterRegistration(JwtAuthFilter filter) {
         FilterRegistrationBean<JwtAuthFilter> registration = new FilterRegistrationBean<>(filter);

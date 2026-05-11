@@ -64,7 +64,6 @@ public class AdminLogsController {
                 + baseFrom + "ORDER BY al.created_at DESC LIMIT ? OFFSET ?",
                 pageParams.toArray());
 
-        // Distinct action types for filter dropdown
         List<Map<String, Object>> actions = jdbc.queryForList(
                 "SELECT DISTINCT action FROM admin_logs WHERE admin_id = ? ORDER BY action",
                 currentAdminId);

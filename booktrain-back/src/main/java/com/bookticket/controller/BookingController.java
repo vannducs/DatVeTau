@@ -18,10 +18,7 @@ public class BookingController {
 
     private final BookingService bookingService;
 
-    /**
-     * POST /api/booking/create — yêu cầu đăng nhập (JWT)
-     * Tạo đơn hàng và tạm giữ ghế, trả về orderCode
-     */
+    /** POST /api/booking/create */
     @PostMapping("/create")
     public ResponseEntity<Map<String, Object>> createBooking(
             @RequestBody CreateBookingRequest req,
