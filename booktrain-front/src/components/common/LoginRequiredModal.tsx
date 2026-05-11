@@ -1,8 +1,8 @@
 import "./loginRequiredModal.css";
 
 interface Props {
-    onConfirm: () => void;  // nhấn Đồng ý
-    onCancel: () => void;   // nhấn Hủy
+    onConfirm: () => void;  
+    onCancel: () => void;   
 }
 
 export default function LoginRequiredModal({ onConfirm, onCancel }: Props) {
@@ -19,7 +19,7 @@ export default function LoginRequiredModal({ onConfirm, onCancel }: Props) {
                 {/* Nội dung */}
                 <h3 className="modal-title">Bạn chưa đăng nhập</h3>
                 <p className="modal-desc">
-                    Vui lòng đăng nhập để tiếp tục đặt vé và sử dụng dịch vụ của DatVeXe.
+                    Vui lòng đăng nhập để tiếp tục đặt vé và sử dụng dịch vụ của DatVeTau.
                 </p>
 
                 {/* Nút */}

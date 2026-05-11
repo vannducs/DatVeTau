@@ -11,7 +11,7 @@ const testimonials = [
   },
   {
     quote:
-      "Các đối tác của Vexere đều là những hãng xe lớn, có uy tín nên tôi hoàn toàn yên tâm khi lựa chọn đặt vé cho bản thân và gia đình. Nhờ hiển thị rõ nhà xe và vị trí chỗ trống trên xe, tôi rất dễ dàng tìm chuyến mình muốn và chỗ mình muốn ngồi. Còn hình thức thanh toán có cả thẻ, ví, tại nhà xe và tốc độ thanh toán thì siêu nhanh, tiết kiệm cho tôi rất nhiều thời gian.",
+      "Các đối tác của DatVeTau đều là những hãng xe lớn, có uy tín nên tôi hoàn toàn yên tâm khi lựa chọn đặt vé cho bản thân và gia đình. Nhờ hiển thị rõ nhà xe và vị trí chỗ trống trên xe, tôi rất dễ dàng tìm chuyến mình muốn và chỗ mình muốn ngồi. Còn hình thức thanh toán có cả thẻ, ví, tại nhà xe và tốc độ thanh toán thì siêu nhanh, tiết kiệm cho tôi rất nhiều thời gian.",
     author: "Giám đốc",
     company: "BSSC",
   },
@@ -33,7 +33,7 @@ export default function CustomerTestimonials() {
   return (
     <section className="customer-testimonials">
       <div className="testimonials-container">
-        <h2>Khách hàng nói gì về Vexere</h2>
+        <h2>Khách hàng nói gì về DatVeTau</h2>
 
         <div className="testimonial-card">
           <div className="testimonial-quote-icon">

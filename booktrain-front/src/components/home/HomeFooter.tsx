@@ -1,8 +1,8 @@
 import "./HomeFooter.css"
 
 const footerLinks = {
-  "Về DatVeXe": [
-    "Giới thiệu trang web DatVeXe",
+  "Về DatVeTau": [
+    "Giới thiệu trang web DatVeTau",
     "Tin tức",
     "Tuyển dụng",
   ],
@@ -12,17 +12,15 @@ const footerLinks = {
     "Câu hỏi thường gặp",
     "Chính sách bảo mật",
   ],
-  "Dành cho đối tác": [
-    "Mở bán vé trên DatVeXe",
-    "Phần mềm quản lý nhà xe",
-    "Phần mềm quản lý hàng hoá",
-    "Đăng ký treo banner",
+  "Thông tin liên hệ": [
+    "Hotline: 0123444999",
+    "Email: datvetau@gmail.com",
   ],
-  "Bến xe": [
-    "Bến xe Miền Đông",
-    "Bến xe Gia Lâm",
-    "Bến xe Nước Ngầm",
-    "Bến xe Mỹ Đình",
+  "Nhà ga": [
+    "Ga Hà Nội",
+    "Ga Vinh",
+    "Ga Đà Nẵng",
+    "Ga Sài Gòn",
   ],
 }
 
@@ -40,7 +38,7 @@ export default function HomeFooter() {
           <div className="footer-brand">
             <div className="footer-logo">DatVeXe</div>
             <p className="footer-brand-desc">
-              Nền tảng đặt vé xe khách, tàu hỏa hàng đầu Việt Nam. Kết nối hành khách với hơn 2000+ nhà xe chất lượng cao trên toàn quốc.
+              Nền tảng đặt vé tàu hỏa hàng đầu Việt Nam. Kết nối hơn 1000 hành khách trên toàn quốc.
             </p>
             <div className="footer-social">
               {socialLinks.map((s) => (
@@ -66,7 +64,7 @@ export default function HomeFooter() {
         </div>
 
         <div className="footer-bottom">
-          <p>© 2026 DatVeXe. Tất cả quyền được bảo lưu.</p>
+          <p>© 2026 DatVeTau. Tất cả quyền được bảo lưu.</p>
           <p>Địa chỉ: Đại học Vinh, Lê Duẩn, Trường Vinh, Nghệ An</p>
           <p>Hotline: 0362369188 | Email: nguyenvanducqlfptshop@gmail.com</p>
         </div>

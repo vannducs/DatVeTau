@@ -30,19 +30,19 @@ export default function Header() {
   return (
     <header className="header">
       <div className="header-banner">
-        <p>Cam kết hoàn 150% nếu nhà xe không cung cấp dịch vụ vận chuyển (*)</p>
+        <p>Cam kết hoàn 100% nếu nhà ga không cung cấp dịch vụ vận chuyển (*)</p>
       </div>
 
       <div className="header-container">
         <div className="header-left">
-          <Link to="/" className="logo">DatVeXe</Link>
+          <Link to="/" className="logo">DatVeTau</Link>
         </div>
 
         <nav className="header-nav">
           <Link to="/">Trang chính</Link>
           <Link to="/my-orders">Đơn hàng của tôi</Link>
-          <a href="#">Mở bán vé trên DatVeXe</a>
-          <a href="#">Trở thành đối tác</a>
+          <a href="#">Tra cứu mã vé</a>
+          <a href="#">Liên hệ và hỗ trợ</a>
         </nav>
 
         <div className="header-right">

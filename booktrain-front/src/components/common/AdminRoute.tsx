@@ -20,16 +20,13 @@ export default function AdminRoute({ children }: { children: React.ReactNode }) 
         );
     }
 
-    // Chưa đăng nhập → về trang login
     if (!user) {
         return <Navigate to="/login" replace />;
     }
 
-    // Đã đăng nhập nhưng không phải admin → về trang chủ
     if (user.accountType !== "admin") {
         return <Navigate to="/" replace />;
     }
 
-    // Là admin → render nội dung bên trong
     return <>{children}</>;
 }  

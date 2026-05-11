@@ -23,16 +23,16 @@ const tabs: Tab[] = [
 
 interface SearchBoxProps {
   defaultTab?: TabId
-  initialOrigin?: LocationDTO | null      // 👈 thêm
-  initialDestination?: LocationDTO | null // 👈 thêm
-  initialDate?: string                    // 👈 thêm
+  initialOrigin?: LocationDTO | null      
+  initialDestination?: LocationDTO | null 
+  initialDate?: string                    
 }
 
 export default function SearchBox({ 
   defaultTab = "train",
-  initialOrigin,        // 👈 thêm
-  initialDestination,   // 👈 thêm
-  initialDate,          // 👈 thêm
+  initialOrigin,        
+  initialDestination,   
+  initialDate,          
 }: SearchBoxProps) {
   const [activeTab, setActiveTab] = useState<TabId>(defaultTab)
 
@@ -40,7 +40,7 @@ export default function SearchBox({
     switch (tabId) {
       case "train": return (
         <FormTrain
-          initialDeparture={initialOrigin}        // 👈 truyền xuống FormTrain
+          initialDeparture={initialOrigin}        
           initialDestination={initialDestination}
           initialDate={initialDate}
         />
