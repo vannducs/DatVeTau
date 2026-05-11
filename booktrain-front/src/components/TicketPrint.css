@@ -299,6 +299,8 @@
     /* Hide page chrome */
     .pay-header,
     .pay-page,
+    .mo-detail-page > :not(.ticket-print-wrapper),
+    .mo-page,
     .ticket-preview-modal,
     .ticket-no-print {
         display: none !important;

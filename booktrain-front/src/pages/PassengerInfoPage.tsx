@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Header from "../components/common/Header";
 import { tripApi } from "../api/trip";
@@ -63,10 +63,26 @@ function buildPassengerTypes(
     return types;
 }
 
+/** Chuyển đổi ngày sinh từ nhiều định dạng backend (dd/MM/yyyy, yyyy-MM-dd, ISO) sang YYYY-MM-DD cho input[type=date] */
+function normalizeDate(raw?: string): string {
+    if (!raw) return "";
+    // Đã đúng định dạng YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    // Định dạng dd/MM/yyyy
+    const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (slashMatch) return `${slashMatch[3]}-${slashMatch[2]}-${slashMatch[1]}`;
+    // ISO format (2000-01-15T00:00:00...)
+    if (raw.includes("T")) return raw.split("T")[0];
+    return raw;
+}
+
 export default function PassengerInfoPage() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+
+    // Chuẩn hóa ngày sinh từ user
+    const userDob = useMemo(() => normalizeDate(user?.dateOfBirth), [user?.dateOfBirth]);
 
     const tripId        = Number(searchParams.get("tripId"));
     const seatIds       = searchParams.get("seatIds")?.split(",").map(Number) || [];
@@ -131,7 +147,7 @@ export default function PassengerInfoPage() {
                     passengerName: index === 0 ? (user?.fullName?.toUpperCase() || "") : "",
                     idNumber: "",
                     phoneNumber: index === 0 ? (user?.phoneNumber || "") : "",
-                    dateOfBirth: index === 0 ? (user?.dateOfBirth || "") : "",
+                    dateOfBirth: index === 0 ? userDob : "",
                 };
             }));
         }).finally(() => setLoading(false));

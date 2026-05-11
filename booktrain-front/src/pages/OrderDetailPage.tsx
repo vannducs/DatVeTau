@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/common/Header";
+import TicketPrint from "../components/TicketPrint";
+import type { TicketTripInfo, TicketPassenger } from "../components/TicketPrint";
 import "./myorders.css";
 
 interface Passenger {
@@ -83,12 +85,37 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+/** Build tripInfo for TicketPrint from Order's departureTime/arrivalTime format "HH:mm dd/MM/yyyy" */
+function buildTripInfo(order: Order): TicketTripInfo {
+  return {
+    trainCode: order.trainCode,
+    trainName: order.trainName,
+    originName: order.originName,
+    destinationName: order.destinationName,
+    departureTime: order.departureTime,
+    arrivalTime: order.arrivalTime,
+  };
+}
+
+/** Map Order passengers to TicketPassenger format */
+function buildTicketPassengers(passengers: Passenger[]): TicketPassenger[] {
+  return passengers.map(p => ({
+    passengerName: p.passengerName,
+    idNumber: p.idNumber,
+    seatNumber: p.seatNumber,
+    carriageNumber: p.carriageNumber,
+    carriageType: p.carriageType,
+    ticketPrice: p.ticketPrice,
+  }));
+}
+
 export default function OrderDetailPage() {
   const { orderCode } = useParams<{ orderCode: string }>();
   const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -150,6 +177,9 @@ export default function OrderDetailPage() {
   const depParts = order.departureTime.split(" ");
   const arrParts = order.arrivalTime.split(" ");
 
+  const tripInfo = buildTripInfo(order);
+  const ticketPassengers = buildTicketPassengers(order.passengers);
+
   return (
     <div className="mo-detail-page">
       <Header />
@@ -164,13 +194,24 @@ export default function OrderDetailPage() {
             <span className="material-icons-round">arrow_back</span>
             Đơn hàng của tôi
           </button>
-          <button
-            className="mo-action-btn mo-action-btn--primary"
-            onClick={() => window.print()}
-          >
-            <span className="material-icons-round">print</span>
-            In vé
-          </button>
+          {order.status === "paid" && (
+            <>
+              <button
+                className="mo-action-btn mo-action-btn--primary"
+                onClick={() => setShowPreview(true)}
+              >
+                <span className="material-icons-round">visibility</span>
+                Xem vé
+              </button>
+              <button
+                className="mo-action-btn mo-action-btn--primary"
+                onClick={() => window.print()}
+              >
+                <span className="material-icons-round">print</span>
+                In vé
+              </button>
+            </>
+          )}
         </div>
 
         {/* Order status */}
@@ -258,6 +299,49 @@ export default function OrderDetailPage() {
           <Row label="Ngày đặt vé" value={order.createdAt} />
         </div>
       </div>
+
+      {/* Vé tàu — ẩn trên màn hình, hiện khi print */}
+      {order.status === "paid" && (
+        <TicketPrint
+          orderCode={order.orderCode}
+          passengers={ticketPassengers}
+          tripInfo={tripInfo}
+          totalAmount={order.totalAmount}
+        />
+      )}
+
+      {/* Preview modal — Xem vé */}
+      {showPreview && order.status === "paid" && (
+        <div className="ticket-preview-modal" onClick={() => setShowPreview(false)}>
+          <div className="ticket-preview-content" onClick={e => e.stopPropagation()}>
+            <div className="ticket-preview-header">
+              <span className="ticket-preview-title">Xem trước vé / Preview</span>
+              <div className="ticket-preview-actions">
+                <button
+                  className="ticket-preview-btn ticket-preview-btn--close"
+                  onClick={() => setShowPreview(false)}
+                >
+                  <span className="material-icons-round" style={{ fontSize: 16 }}>close</span>
+                  Đóng
+                </button>
+                <button
+                  className="ticket-preview-btn ticket-preview-btn--print"
+                  onClick={() => { setShowPreview(false); setTimeout(() => window.print(), 100); }}
+                >
+                  <span className="material-icons-round" style={{ fontSize: 16 }}>print</span>
+                  In vé
+                </button>
+              </div>
+            </div>
+            <TicketPrint
+              orderCode={order.orderCode}
+              passengers={ticketPassengers}
+              tripInfo={tripInfo}
+              totalAmount={order.totalAmount}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

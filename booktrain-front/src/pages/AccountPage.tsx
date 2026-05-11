@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
     User, Star, ShoppingBag, Tag, Gift,
@@ -9,14 +9,36 @@ import { useAuth } from "@/hooks/useAuth";
 import "./AccountPage.css";
 import Header from "../components/common/Header"
 
+/** Chuyển đổi ngày sinh từ nhiều định dạng backend sang YYYY-MM-DD cho input[type=date] */
+function normalizeDate(raw?: string): string {
+    if (!raw) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (slashMatch) return `${slashMatch[3]}-${slashMatch[2]}-${slashMatch[1]}`;
+    if (raw.includes("T")) return raw.split("T")[0];
+    return raw;
+}
+
 export default function AccountPage() {
     const { user, logout } = useAuth();
     const [form, setForm] = useState({
-        fullName: user?.fullName || "",
-        phoneNumber: user?.phoneNumber || "",
-        dateOfBirth: user?.dateOfBirth || "",
+        fullName: "",
+        phoneNumber: "",
+        dateOfBirth: "",
         gender: "male",
     });
+
+    // Khi user data load xong từ API → sync vào form
+    useEffect(() => {
+        if (user) {
+            setForm(prev => ({
+                ...prev,
+                fullName: user.fullName || prev.fullName,
+                phoneNumber: user.phoneNumber || prev.phoneNumber,
+                dateOfBirth: normalizeDate(user.dateOfBirth) || prev.dateOfBirth,
+            }));
+        }
+    }, [user]);
 
     const set = (field: string) => (
         e: React.ChangeEvent<HTMLInputElement>
