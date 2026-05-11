@@ -53,6 +53,8 @@ public class AuthController {
                 .fullName(user.getFullName())
                 .email(user.getEmail())
                 .phoneNumber(user.getPhoneNumber())
+                .dateOfBirth(user.getDateOfBirth() != null
+                        ? user.getDateOfBirth().toString() : null)
                 .accountType(user.getAccountType())
                 .status(user.getStatus())
                 .avatarUrl(user.getAvatarUrl())
@@ -129,6 +131,60 @@ public class AuthController {
                         ? user.getDateOfBirth().toString() : null)
                 .status(user.getStatus())
                 .avatarUrl(user.getAvatarUrl())
+                .build());
+    }
+
+    // PUT /api/auth/profile — Cập nhật thông tin cá nhân
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody java.util.Map<String, String> body) {
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(AuthResponse.builder().message("Token không hợp lệ!").build());
+        }
+
+        String token = authHeader.substring(7);
+        if (!jwtUtils.validateToken(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(AuthResponse.builder().message("Token đã hết hạn!").build());
+        }
+
+        String email = jwtUtils.getEmailFromToken(token);
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(AuthResponse.builder().message("Không tìm thấy người dùng!").build());
+        }
+
+        if (body.containsKey("fullName") && body.get("fullName") != null) {
+            user.setFullName(body.get("fullName"));
+        }
+        if (body.containsKey("phoneNumber")) {
+            user.setPhoneNumber(body.get("phoneNumber"));
+        }
+        if (body.containsKey("dateOfBirth") && body.get("dateOfBirth") != null
+                && !body.get("dateOfBirth").isEmpty()) {
+            user.setDateOfBirth(java.time.LocalDate.parse(body.get("dateOfBirth")));
+        }
+        if (body.containsKey("gender")) {
+            user.setGender(body.get("gender"));
+        }
+
+        userRepository.save(user);
+
+        return ResponseEntity.ok(AuthResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .dateOfBirth(user.getDateOfBirth() != null
+                        ? user.getDateOfBirth().toString() : null)
+                .accountType(user.getAccountType())
+                .status(user.getStatus())
+                .avatarUrl(user.getAvatarUrl())
+                .message("Cập nhật thành công!")
                 .build());
     }
 }

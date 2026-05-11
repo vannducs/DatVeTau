@@ -6,6 +6,7 @@ import {
     Lightbulb, LogOut
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { authApi } from "@/api/auth";
 import "./AccountPage.css";
 import Header from "../components/common/Header"
 
@@ -27,6 +28,8 @@ export default function AccountPage() {
         dateOfBirth: "",
         gender: "male",
     });
+    const [saving, setSaving] = useState(false);
+    const [saveMsg, setSaveMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Khi user data load xong từ API → sync vào form
     useEffect(() => {
@@ -44,10 +47,32 @@ export default function AccountPage() {
         e: React.ChangeEvent<HTMLInputElement>
     ) => setForm({ ...form, [field]: e.target.value });
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        // TODO: gọi API cập nhật thông tin
-        alert("Lưu thành công!");
+        setSaving(true);
+        setSaveMsg(null);
+        try {
+            const res = await authApi.updateProfile({
+                fullName: form.fullName,
+                phoneNumber: form.phoneNumber,
+                dateOfBirth: form.dateOfBirth,
+                gender: form.gender,
+            });
+            setSaveMsg({ type: "success", text: res.data.message || "Cập nhật thành công!" });
+            // Re-fetch user để sync AuthContext
+            const meRes = await authApi.getMe();
+            if (meRes.data.id) {
+                // Force reload AuthContext user bằng cách trigger lại
+                window.location.reload();
+            }
+        } catch (err: any) {
+            setSaveMsg({
+                type: "error",
+                text: err.response?.data?.message || "Có lỗi xảy ra, vui lòng thử lại!",
+            });
+        } finally {
+            setSaving(false);
+        }
     };
 
     const menuItems: { icon: React.ReactNode; label: string; to: string; active?: boolean; badge?: string | number }[] = [
@@ -152,8 +177,22 @@ export default function AccountPage() {
 
                         <div className="form-divider" />
 
-                        <button type="submit" className="btn-save">
-                            Lưu
+                        {saveMsg && (
+                            <div style={{
+                                padding: "10px 14px",
+                                borderRadius: 8,
+                                marginBottom: 12,
+                                fontSize: 14,
+                                fontWeight: 500,
+                                background: saveMsg.type === "success" ? "#dcfce7" : "#fee2e2",
+                                color: saveMsg.type === "success" ? "#16a34a" : "#dc2626",
+                            }}>
+                                {saveMsg.text}
+                            </div>
+                        )}
+
+                        <button type="submit" className="btn-save" disabled={saving}>
+                            {saving ? "Đang lưu..." : "Lưu"}
                         </button>
                     </form>
                 </main>

@@ -28,6 +28,13 @@ export const authApi = {
     }) =>api.post("/auth/register", data),
 
   getMe: () => api.get("/auth/me"),
+
+  updateProfile: (data: {
+    fullName?: string;
+    phoneNumber?: string;
+    dateOfBirth?: string;
+    gender?: string;
+  }) => api.put("/auth/profile", data),
 };
 
 export default api;

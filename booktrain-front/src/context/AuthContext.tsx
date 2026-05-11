@@ -53,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         authApi.getMe()
             .then((res) => {
                 // Backend trả thẳng object User, không có wrapper success/data
+                console.log("getMe response:", res.data);
                 if (res.data.id) setUser(res.data);
                 else logout();
             })
