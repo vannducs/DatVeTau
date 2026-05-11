@@ -50,7 +50,7 @@ public class TripAdminController {
             @RequestParam(required = false)    String  date,
             @RequestParam(defaultValue = "")   String  search) {
 
-        StringBuilder where = new StringBuilder("WHERE 1=1 ");
+        StringBuilder where = new StringBuilder("WHERE tt.departure_date >= CURRENT_DATE ");
         List<Object> params = new ArrayList<>();
 
         if (!status.isEmpty()) {
@@ -91,7 +91,7 @@ public class TripAdminController {
                        COALESCE(l2.name, '') AS destination_name,
                        tt.cancel_reason, tt.cancelled_at,
                        (SELECT COUNT(*) FROM seat_bookings sb WHERE sb.trip_id = tt.id AND sb.status = 'confirmed') AS confirmed_bookings
-                """ + baseFrom + "ORDER BY tt.departure_time DESC LIMIT ? OFFSET ?",
+                """ + baseFrom + "ORDER BY tt.departure_time ASC LIMIT ? OFFSET ?",
                 pageParams.toArray());
 
         return ResponseEntity.ok(Map.of(
@@ -146,6 +146,7 @@ public class TripAdminController {
             Integer destinationId,
             String  departureDate,
             String  departureTime,
+            Integer durationMinutes,
             List<SeatPriceEntry> seatPrices) {}
 
     /** POST /api/admin/trips */
@@ -190,17 +191,20 @@ public class TripAdminController {
         if (carriageCount == null || carriageCount < 4)
             return ResponseEntity.badRequest().body(Map.of("message", "Tàu phải có ít nhất 4 toa để lên kế hoạch"));
 
-        // 5. Get duration from train_schedule_times
-        List<Map<String, Object>> durationRows = jdbc.queryForList("""
-                SELECT duration_minutes FROM train_schedule_times
-                WHERE train_id = ? AND origin_id = ? AND destination_id = ?
-                """, req.trainId(), req.originId(), req.destinationId());
-
-        if (durationRows.isEmpty())
-            return ResponseEntity.badRequest().body(Map.of("message",
-                "Không tìm thấy thời gian cho tuyến này. Vui lòng thêm vào train_schedule_times."));
-
-        int durationMinutes = ((Number) durationRows.get(0).get("duration_minutes")).intValue();
+        // 5. Get duration: use frontend-provided value, fallback to DB
+        int durationMinutes;
+        if (req.durationMinutes() != null && req.durationMinutes() > 0) {
+            durationMinutes = req.durationMinutes();
+        } else {
+            List<Map<String, Object>> durationRows = jdbc.queryForList("""
+                    SELECT duration_minutes FROM train_schedule_times
+                    WHERE train_id = ? AND origin_id = ? AND destination_id = ?
+                    """, req.trainId(), req.originId(), req.destinationId());
+            if (durationRows.isEmpty())
+                return ResponseEntity.badRequest().body(Map.of("message",
+                    "Không tìm thấy thời gian cho tuyến này. Vui lòng nhập thời gian di chuyển dự kiến."));
+            durationMinutes = ((Number) durationRows.get(0).get("duration_minutes")).intValue();
+        }
 
         // 6. Parse departure and compute arrival
         LocalDateTime departureLdt = LocalDateTime.parse(req.departureDate() + "T" + req.departureTime());

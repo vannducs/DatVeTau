@@ -407,6 +407,7 @@ public class TrainAdminController {
             @RequestParam Integer originId,
             @RequestParam Integer destinationId) {
 
+        // 1) Exact match in train_schedule_times
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 SELECT duration_minutes FROM train_schedule_times
                 WHERE train_id = ? AND origin_id = ? AND destination_id = ?
@@ -417,6 +418,41 @@ public class TrainAdminController {
                     "durationMinutes", rows.get(0).get("duration_minutes"),
                     "found", true));
         }
+
+        // 2) Fallback: calculate from train_routes using departure_time/arrival_time + day_offset
+        try {
+            List<Map<String, Object>> originRoute = jdbc.queryForList("""
+                    SELECT departure_time, day_offset FROM train_routes
+                    WHERE train_id = ? AND location_id = ?
+                    """, trainId, originId);
+            List<Map<String, Object>> destRoute = jdbc.queryForList("""
+                    SELECT arrival_time, day_offset FROM train_routes
+                    WHERE train_id = ? AND location_id = ?
+                    """, trainId, destinationId);
+
+            if (!originRoute.isEmpty() && !destRoute.isEmpty()) {
+                Object depTimeObj = originRoute.get(0).get("departure_time");
+                Object arrTimeObj = destRoute.get(0).get("arrival_time");
+                int depOffset = ((Number) originRoute.get(0).get("day_offset")).intValue();
+                int arrOffset = ((Number) destRoute.get(0).get("day_offset")).intValue();
+
+                if (depTimeObj != null && arrTimeObj != null) {
+                    java.time.LocalTime depTime = ((java.sql.Time) depTimeObj).toLocalTime();
+                    java.time.LocalTime arrTime = ((java.sql.Time) arrTimeObj).toLocalTime();
+
+                    long depMinutes = depOffset * 24 * 60L + depTime.getHour() * 60L + depTime.getMinute();
+                    long arrMinutes = arrOffset * 24 * 60L + arrTime.getHour() * 60L + arrTime.getMinute();
+                    long duration = arrMinutes - depMinutes;
+
+                    if (duration > 0) {
+                        return ResponseEntity.ok(Map.of(
+                                "durationMinutes", duration,
+                                "found", true));
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
         return ResponseEntity.ok(Map.of("durationMinutes", (Object) null, "found", false));
     }
 

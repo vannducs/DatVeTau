@@ -1,5 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { tripAdminApi, trainAdminApi } from "../api/adminApi";
+import { locationApi } from "../../api/location";
+import type { LocationDTO } from "../../types/location";
 import axios from "axios";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -68,6 +70,127 @@ const STATUS_LABEL: Record<string, string> = {
     completed: "Hoàn thành",
 };
 
+// ─── Admin Station Dropdown (grouped by province, searchable) ─────────────────
+
+function AdminStationDropdown({
+    label, placeholder, locations, value, onChange,
+}: {
+    label: string;
+    placeholder: string;
+    locations: LocationDTO[];
+    value: number | null;
+    onChange: (id: number) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClick(e: MouseEvent) {
+            if (ref.current && !ref.current.contains(e.target as Node)) {
+                setOpen(false); setSearch("");
+            }
+        }
+        if (open) document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, [open]);
+
+    const filtered = useMemo(() => {
+        if (!search) return locations;
+        const kw = search.toLowerCase();
+        return locations.filter(l =>
+            l.name.toLowerCase().includes(kw) ||
+            (l.provinceName ?? "").toLowerCase().includes(kw)
+        );
+    }, [locations, search]);
+
+    const grouped = useMemo(() => {
+        const map: Record<string, LocationDTO[]> = {};
+        for (const loc of filtered) {
+            const prov = loc.provinceName ?? "Khác";
+            if (!map[prov]) map[prov] = [];
+            map[prov].push(loc);
+        }
+        return map;
+    }, [filtered]);
+
+    const selected = locations.find(l => l.id === value);
+
+    return (
+        <div className="admin-form-group" ref={ref} style={{ position: "relative" }}>
+            <label className="admin-form-label">{label}</label>
+            <div
+                className="admin-form-select"
+                style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                onClick={() => setOpen(v => !v)}
+            >
+                <span style={{ color: selected ? "#1F2937" : "#9CA3AF" }}>
+                    {selected ? selected.name : placeholder}
+                </span>
+                <span style={{ fontSize: 10 }}>▼</span>
+            </div>
+
+            {open && (
+                <div style={{
+                    position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100,
+                    background: "#fff", border: "1px solid #D1D5DB", borderRadius: 8,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.12)", maxHeight: 280, overflow: "hidden",
+                    display: "flex", flexDirection: "column",
+                }}>
+                    <div style={{ padding: "8px 10px", borderBottom: "1px solid #E5E7EB" }}>
+                        <input
+                            autoFocus
+                            type="text"
+                            placeholder="🔍 Tìm ga tàu..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            onClick={e => e.stopPropagation()}
+                            style={{
+                                width: "100%", border: "1px solid #E5E7EB", borderRadius: 6,
+                                padding: "6px 10px", fontSize: 13, outline: "none", boxSizing: "border-box",
+                            }}
+                        />
+                    </div>
+                    <div style={{ overflowY: "auto", maxHeight: 220 }}>
+                        {Object.entries(grouped).map(([prov, locs]) => (
+                            <div key={prov}>
+                                <div style={{
+                                    fontSize: 11, fontWeight: 700, color: "#6B7280",
+                                    textTransform: "uppercase", padding: "6px 12px",
+                                    background: "#F9FAFB", borderBottom: "1px solid #F3F4F6",
+                                }}>
+                                    {prov}
+                                </div>
+                                {locs.map(loc => (
+                                    <div
+                                        key={loc.id}
+                                        onClick={e => { e.stopPropagation(); onChange(loc.id); setOpen(false); setSearch(""); }}
+                                        style={{
+                                            padding: "8px 12px", cursor: "pointer", fontSize: 13,
+                                            background: loc.id === value ? "#EFF6FF" : "transparent",
+                                            fontWeight: loc.id === value ? 700 : 400,
+                                        }}
+                                        onMouseEnter={e => (e.currentTarget.style.background = "#F0F4FF")}
+                                        onMouseLeave={e => (e.currentTarget.style.background = loc.id === value ? "#EFF6FF" : "transparent")}
+                                    >
+                                        <div style={{ fontWeight: 600 }}>{loc.name.startsWith("Ga ") ? loc.name.slice(3) : loc.name}</div>
+                                        <div style={{ fontSize: 11, color: "#9CA3AF" }}>{loc.name}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                        {filtered.length === 0 && (
+                            <div style={{ padding: 16, textAlign: "center", color: "#9CA3AF", fontSize: 13 }}>
+                                Không tìm thấy ga nào
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export default function TripsPage() {
@@ -81,26 +204,29 @@ export default function TripsPage() {
     const [loading,      setLoading]      = useState(true);
     const [msg,          setMsg]          = useState("");
     const [allTrains,    setAllTrains]    = useState<TrainOption[]>([]);
+    const [allLocations, setAllLocations] = useState<LocationDTO[]>([]);
 
     // Wizard state
     const [showWizard, setShowWizard] = useState(false);
-    const [step,       setStep]       = useState<1 | 2 | 3 | 4>(1);
+    const [step,       setStep]       = useState<1 | 2 | 3 | 4 | 5>(1);
     const [wizErr,     setWizErr]     = useState("");
 
-    // Step 1
+    // Step 1: Chọn tàu
     const [selTrain,     setSelTrain]     = useState<TrainOption | null>(null);
     const [trainStatus,  setTrainStatus]  = useState<TripStatus | null>(null);
     const [stations,     setStations]     = useState<Station[]>([]);
     const [originId,     setOriginId]     = useState<number | null>(null);
     const [destId,       setDestId]       = useState<number | null>(null);
 
-    // Step 2
+    // Step 2: Đi đến (originId, destId nằm ở Step 1 state)
+
+    // Step 3: Ngày & giờ
     const [depDate,      setDepDate]      = useState("");
     const [depTime,      setDepTime]      = useState("");
     const [arrivalStr,   setArrivalStr]   = useState("");
     const [duration,     setDuration]     = useState<number | null>(null);
 
-    // Step 3
+    // Step 4: Giá vé
     const [carriages,    setCarriages]    = useState<CarriageOption[]>([]);
     const [prices,       setPrices]       = useState<PriceMap>({});
 
@@ -130,6 +256,7 @@ export default function TripsPage() {
 
     useEffect(() => {
         trainAdminApi.list().then(r => setAllTrains(r.data));
+        locationApi.getTrainStations().then(r => setAllLocations(r.data)).catch(() => {});
     }, []);
 
     // ─── Wizard helpers ───────────────────────────────────────────────────────────
@@ -159,32 +286,56 @@ export default function TripsPage() {
         setTrainStatus(statusRes.data);
     }
 
+    /** Tính giờ đến từ duration (phút) */
+    function updateArrivalFromDuration(date: string, time: string, dur: number) {
+        if (!date || !time || dur <= 0) { setArrivalStr(""); return; }
+        const depMs = new Date(`${date}T${time}:00`).getTime();
+        const arr = new Date(depMs + dur * 60000);
+        setArrivalStr(
+            arr.toLocaleDateString("vi-VN") + " " +
+            arr.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+        );
+    }
+
+    /** Tự động tìm duration từ DB, nếu không có thì để admin nhập thủ công */
     async function computeArrival(date: string, time: string, oId: number | null, dId: number | null) {
-        if (!date || !time || !oId || !dId || !selTrain) { setArrivalStr(""); return; }
+        if (!oId || !dId || !selTrain) { return; }
         try {
             const res = await trainAdminApi.scheduleDuration(selTrain.id, oId, dId);
             if (res.data.found && res.data.durationMinutes) {
                 const dur = Number(res.data.durationMinutes);
                 setDuration(dur);
-                const depMs = new Date(`${date}T${time}:00`).getTime();
-                const arrMs = depMs + dur * 60000;
-                const arr = new Date(arrMs);
-                setArrivalStr(
-                    arr.toLocaleDateString("vi-VN") + " " +
-                    arr.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
-                );
+                if (date && time) updateArrivalFromDuration(date, time, dur);
             } else {
+                // Không tìm thấy → giữ duration null → admin nhập thủ công
                 setDuration(null);
-                setArrivalStr("Chưa có dữ liệu thời gian cho tuyến này");
+                setArrivalStr("");
             }
-        } catch { setArrivalStr(""); }
+        } catch { /* giữ nguyên */ }
     }
 
-    async function step2Next() {
+    /** Khi admin nhập duration thủ công */
+    function handleManualDuration(hours: string, minutes: string) {
+        const h = parseInt(hours) || 0;
+        const m = parseInt(minutes) || 0;
+        const totalMin = h * 60 + m;
+        if (totalMin > 0) {
+            setDuration(totalMin);
+            updateArrivalFromDuration(depDate, depTime, totalMin);
+        } else {
+            setDuration(null);
+            setArrivalStr("");
+        }
+    }
+
+    async function step3Next() {
         setWizErr("");
         if (!depDate || !depTime) { setWizErr("Vui lòng chọn ngày và giờ khởi hành"); return; }
-        if (!duration) { setWizErr("Không tìm thấy thời gian chạy cho tuyến này. Vui lòng kiểm tra dữ liệu train_schedule_times."); return; }
-        const depMs = new Date(`${depDate}T${depTime}:00`).getTime() + (duration ?? 0) * 60000;
+        if (!duration || duration <= 0) {
+            setWizErr("Vui lòng nhập thời gian di chuyển dự kiến");
+            return;
+        }
+        const depMs = new Date(`${depDate}T${depTime}:00`).getTime() + duration * 60000;
         if (depMs < Date.now()) { setWizErr("Thời gian đến phải sau hiện tại"); return; }
 
         const res = await trainAdminApi.carriages(selTrain!.id);
@@ -196,10 +347,10 @@ export default function TripsPage() {
                 : { seat: "" };
         }
         setPrices(initPrices);
-        setStep(3);
+        setStep(4);
     }
 
-    function step3Next() {
+    function step4Next() {
         setWizErr("");
         for (const c of carriages) {
             const p = prices[c.id] ?? {};
@@ -213,7 +364,24 @@ export default function TripsPage() {
                 if (Number(p.seat) <= 0) { setWizErr(`Giá vé Toa ${c.carriage_number} phải lớn hơn 0`); return; }
             }
         }
-        setStep(4);
+        setStep(5);
+    }
+
+    /** Áp dụng giá của 1 toa cho tất cả toa cùng loại */
+    function applyPriceToSameType(sourceCarriageId: number) {
+        const source = carriages.find(c => c.id === sourceCarriageId);
+        if (!source) return;
+        const sourcePrice = prices[sourceCarriageId];
+        if (!sourcePrice) return;
+        setPrices(prev => {
+            const next = { ...prev };
+            for (const c of carriages) {
+                if (c.carriage_type === source.carriage_type && c.id !== sourceCarriageId) {
+                    next[c.id] = { ...sourcePrice };
+                }
+            }
+            return next;
+        });
     }
 
     async function handleConfirmCreate() {
@@ -236,6 +404,7 @@ export default function TripsPage() {
                 originId, destinationId: destId,
                 departureDate: depDate,
                 departureTime: depTime,
+                durationMinutes: duration,
                 seatPrices,
             });
             setMsg("Lên kế hoạch chuyến tàu thành công!");
@@ -343,7 +512,16 @@ export default function TripsPage() {
                                         <div style={{ fontWeight: 700, color: "#2F6FED" }}>{t.train_code}</div>
                                         <div style={{ fontSize: 11, color: "#9CA3AF" }}>{t.train_name}</div>
                                     </td>
-                                    <td>{t.origin_name || "—"} → {t.destination_name || "—"}</td>
+                                    <td style={{ color: "#1F2937" }}>{(t.origin_name && t.destination_name)
+                                        ? `${t.origin_name} → ${t.destination_name}`
+                                        : (() => {
+                                            // "Tàu Thống Nhất SE1 - Hà Nội - Sài Gòn" → "Hà Nội → Sài Gòn"
+                                            const parts = (t.train_name || "").split(/\s*[-—–→]\s*/);
+                                            return parts.length >= 3
+                                                ? parts.slice(-2).join(" → ")
+                                                : parts[parts.length - 1] || "—";
+                                        })()}
+                                    </td>
                                     <td style={{ fontSize: 12 }}>
                                         {t.departure_time
                                             ? new Date(t.departure_time).toLocaleString("vi-VN")
@@ -405,13 +583,14 @@ export default function TripsPage() {
 
                         {/* Step indicator */}
                         <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "1px solid #E5E7EB", paddingBottom: 12 }}>
-                            {["Chọn tàu & tuyến", "Ngày & giờ", "Giá vé", "Xác nhận"].map((label, i) => (
+                            {["Chọn tàu", "Đi đến", "Ngày & giờ", "Giá vé", "Xác nhận"].map((label, i) => (
                                 <div key={i} style={{
                                     flex: 1, textAlign: "center", fontSize: 12, fontWeight: step === i + 1 ? 700 : 500,
                                     color: step === i + 1 ? "#2F6FED" : step > i + 1 ? "#16A34A" : "#9CA3AF",
                                     borderBottom: step === i + 1 ? "2px solid #2F6FED" : "2px solid transparent",
-                                    paddingBottom: 6
-                                }}>
+                                    paddingBottom: 6, cursor: step > i + 1 ? "pointer" : "default",
+                                }}
+                                onClick={() => { if (step > i + 1) setStep((i + 1) as 1|2|3|4|5); }}>
                                     {step > i + 1 ? "✓ " : `${i + 1}. `}{label}
                                 </div>
                             ))}
@@ -419,7 +598,7 @@ export default function TripsPage() {
 
                         {wizErr && <div className="admin-alert admin-alert-error" style={{ marginBottom: 12 }}>{wizErr}</div>}
 
-                        {/* ── Step 1: Train + Route ── */}
+                        {/* ── Step 1: Train ── */}
                         {step === 1 && (
                             <div>
                                 <div className="admin-form-group">
@@ -439,7 +618,6 @@ export default function TripsPage() {
                                     </select>
                                 </div>
 
-                                {/* Trip status info */}
                                 {selTrain && trainStatus && (
                                     trainStatus.hasActiveTrip ? (
                                         <div className="admin-alert admin-alert-error" style={{ marginBottom: 12 }}>
@@ -458,38 +636,10 @@ export default function TripsPage() {
                                     )
                                 )}
 
-                                {stations.length > 0 && !trainStatus?.hasActiveTrip && (
-                                    <div className="admin-grid-2">
-                                        <div className="admin-form-group">
-                                            <label className="admin-form-label">Ga đi *</label>
-                                            <select className="admin-form-select"
-                                                value={originId ?? ""}
-                                                onChange={e => { setOriginId(Number(e.target.value)); setDestId(null); }}>
-                                                <option value="">-- Chọn ga đi --</option>
-                                                {stations.slice(0, -1).map(s => (
-                                                    <option key={s.location_id} value={s.location_id}>{s.location_name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="admin-form-group">
-                                            <label className="admin-form-label">Ga đến *</label>
-                                            <select className="admin-form-select"
-                                                value={destId ?? ""}
-                                                onChange={e => setDestId(Number(e.target.value))}
-                                                disabled={!originId}>
-                                                <option value="">-- Chọn ga đến --</option>
-                                                {destStations.map(s => (
-                                                    <option key={s.location_id} value={s.location_id}>{s.location_name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-                                )}
-
                                 <div className="admin-modal-actions">
                                     <button className="admin-btn admin-btn-outline" onClick={() => setShowWizard(false)}>Hủy</button>
                                     <button className="admin-btn admin-btn-primary"
-                                        disabled={!selTrain || !originId || !destId || !!trainStatus?.hasActiveTrip}
+                                        disabled={!selTrain || !!trainStatus?.hasActiveTrip}
                                         onClick={() => { setWizErr(""); setStep(2); }}>
                                         Tiếp theo
                                     </button>
@@ -497,9 +647,56 @@ export default function TripsPage() {
                             </div>
                         )}
 
-                        {/* ── Step 2: Date + Time ── */}
+                        {/* ── Step 2: Đi đến (Origin/Destination) ── */}
                         {step === 2 && (
                             <div>
+                                <div style={{ background: "#EFF6FF", padding: "10px 14px", borderRadius: 6, marginBottom: 16, fontSize: 13 }}>
+                                    Tàu: <strong>{selTrain?.train_code} — {selTrain?.train_name}</strong>
+                                </div>
+
+                                <div className="admin-grid-2">
+                                    <AdminStationDropdown
+                                        label="Ga xuất phát *"
+                                        placeholder="Chọn ga đi"
+                                        locations={allLocations.filter(l => l.id !== destId)}
+                                        value={originId}
+                                        onChange={id => { setOriginId(id); setDestId(null); }}
+                                    />
+                                    <AdminStationDropdown
+                                        label="Ga kết thúc *"
+                                        placeholder="Chọn ga đến"
+                                        locations={allLocations.filter(l => l.id !== originId)}
+                                        value={destId}
+                                        onChange={setDestId}
+                                    />
+                                </div>
+
+                                <div className="admin-modal-actions">
+                                    <button className="admin-btn admin-btn-outline" onClick={() => setStep(1)}>Quay lại</button>
+                                    <button className="admin-btn admin-btn-primary"
+                                        disabled={!originId || !destId}
+                                        onClick={() => {
+                                            setWizErr("");
+                                            setStep(3);
+                                            computeArrival(depDate, depTime, originId, destId);
+                                        }}>
+                                        Tiếp theo
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Step 3: Date + Time ── */}
+                        {step === 3 && (
+                            <div>
+                                <div style={{ background: "#EFF6FF", padding: "10px 14px", borderRadius: 6, marginBottom: 16, fontSize: 13 }}>
+                                    Tàu: <strong>{selTrain?.train_code}</strong>
+                                    <span style={{ margin: "0 8px", color: "#6B7280" }}>•</span>
+                                    <strong>{allLocations.find(l => l.id === originId)?.name}</strong>
+                                    <span style={{ margin: "0 6px" }}>→</span>
+                                    <strong>{allLocations.find(l => l.id === destId)?.name}</strong>
+                                </div>
+
                                 <div className="admin-grid-2">
                                     <div className="admin-form-group">
                                         <label className="admin-form-label">Ngày khởi hành *</label>
@@ -509,7 +706,7 @@ export default function TripsPage() {
                                             max={trainStatus?.latestAllowedDate}
                                             onChange={e => {
                                                 setDepDate(e.target.value);
-                                                computeArrival(e.target.value, depTime, originId, destId);
+                                                if (duration) updateArrivalFromDuration(e.target.value, depTime, duration);
                                             }} />
                                         {trainStatus && (
                                             <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>
@@ -524,27 +721,55 @@ export default function TripsPage() {
                                             value={depTime}
                                             onChange={e => {
                                                 setDepTime(e.target.value);
-                                                computeArrival(depDate, e.target.value, originId, destId);
+                                                if (duration) updateArrivalFromDuration(depDate, e.target.value, duration);
                                             }} />
                                     </div>
                                 </div>
 
-                                {arrivalStr && (
-                                    <div style={{ background: "#EFF6FF", padding: "10px 14px", borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
-                                        Giờ đến dự kiến: <strong>{arrivalStr}</strong>
-                                        {duration && <span style={{ color: "#6B7280" }}> ({Math.floor(duration / 60)}h{duration % 60}m)</span>}
+                                {/* Thời gian di chuyển — auto-fill hoặc nhập thủ công */}
+                                <div className="admin-form-group" style={{ marginTop: 4 }}>
+                                    <label className="admin-form-label">Thời gian di chuyển dự kiến *</label>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <input type="number" className="admin-form-input" min="0"
+                                            style={{ width: 80 }}
+                                            placeholder="Giờ"
+                                            value={duration ? Math.floor(duration / 60) : ""}
+                                            onChange={e => handleManualDuration(e.target.value, String((duration ?? 0) % 60))} />
+                                        <span style={{ fontSize: 13, color: "#6B7280" }}>giờ</span>
+                                        <input type="number" className="admin-form-input" min="0" max="59"
+                                            style={{ width: 80 }}
+                                            placeholder="Phút"
+                                            value={duration ? (duration % 60) : ""}
+                                            onChange={e => handleManualDuration(String(Math.floor((duration ?? 0) / 60)), e.target.value)} />
+                                        <span style={{ fontSize: 13, color: "#6B7280" }}>phút</span>
+                                    </div>
+                                    <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>
+                                        {duration
+                                            ? `Tổng: ${Math.floor(duration / 60)} giờ ${duration % 60} phút`
+                                            : "Nhập thời gian di chuyển dự kiến (tự động điền nếu có dữ liệu)"}
+                                    </div>
+                                </div>
+
+                                {arrivalStr && duration && (
+                                    <div style={{
+                                        background: "#F0FDF4", border: "1px solid #BBF7D0",
+                                        padding: "10px 14px", borderRadius: 6, marginBottom: 12, fontSize: 13,
+                                        color: "#166534",
+                                    }}>
+                                        ✓ Giờ đến dự kiến: <strong>{arrivalStr}</strong>
+                                        <span style={{ color: "#6B7280", marginLeft: 8 }}>({Math.floor(duration / 60)}h{duration % 60}m)</span>
                                     </div>
                                 )}
 
                                 <div className="admin-modal-actions">
-                                    <button className="admin-btn admin-btn-outline" onClick={() => setStep(1)}>Quay lại</button>
-                                    <button className="admin-btn admin-btn-primary" onClick={step2Next}>Tiếp theo</button>
+                                    <button className="admin-btn admin-btn-outline" onClick={() => setStep(2)}>Quay lại</button>
+                                    <button className="admin-btn admin-btn-primary" onClick={step3Next}>Tiếp theo</button>
                                 </div>
                             </div>
                         )}
 
-                        {/* ── Step 3: Seat Prices ── */}
-                        {step === 3 && (
+                        {/* ── Step 4: Seat Prices ── */}
+                        {step === 4 && (
                             <div>
                                 <div style={{ maxHeight: 360, overflowY: "auto", paddingRight: 4 }}>
                                     {carriages.map(c => (
@@ -587,19 +812,32 @@ export default function TripsPage() {
                                                         }))} />
                                                 </div>
                                             )}
+
+                                            {/* Nút áp dụng giá cho tất cả toa cùng loại */}
+                                            {carriages.filter(cc => cc.carriage_type === c.carriage_type).length > 1 && (
+                                                <button type="button"
+                                                    style={{
+                                                        marginTop: 8, padding: "4px 10px", fontSize: 11,
+                                                        background: "#EFF6FF", color: "#2F6FED", border: "1px solid #BFDBFE",
+                                                        borderRadius: 4, cursor: "pointer", fontWeight: 600,
+                                                    }}
+                                                    onClick={() => applyPriceToSameType(c.id)}>
+                                                    ↳ Áp dụng giá này cho tất cả toa {c.carriage_type === "sleeper" ? "nằm" : "ngồi"}
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
 
                                 <div className="admin-modal-actions">
-                                    <button className="admin-btn admin-btn-outline" onClick={() => setStep(2)}>Quay lại</button>
-                                    <button className="admin-btn admin-btn-primary" onClick={step3Next}>Tiếp theo</button>
+                                    <button className="admin-btn admin-btn-outline" onClick={() => setStep(3)}>Quay lại</button>
+                                    <button className="admin-btn admin-btn-primary" onClick={step4Next}>Tiếp theo</button>
                                 </div>
                             </div>
                         )}
 
-                        {/* ── Step 4: Confirm ── */}
-                        {step === 4 && (
+                        {/* ── Step 5: Confirm ── */}
+                        {step === 5 && (
                             <div>
                                 <div style={{ background: "#F9FAFB", borderRadius: 8, padding: 16, marginBottom: 16 }}>
                                     <div style={{ fontWeight: 700, marginBottom: 10 }}>Tóm tắt kế hoạch</div>
@@ -607,7 +845,7 @@ export default function TripsPage() {
                                         <span style={{ color: "#6B7280" }}>Tàu:</span>
                                         <span style={{ fontWeight: 600 }}>{selTrain?.train_code} — {selTrain?.train_name}</span>
                                         <span style={{ color: "#6B7280" }}>Tuyến:</span>
-                                        <span>{stations.find(s => s.location_id === originId)?.location_name} → {stations.find(s => s.location_id === destId)?.location_name}</span>
+                                        <span>{allLocations.find(l => l.id === originId)?.name} → {allLocations.find(l => l.id === destId)?.name}</span>
                                         <span style={{ color: "#6B7280" }}>Ngày khởi hành:</span>
                                         <span>{depDate}</span>
                                         <span style={{ color: "#6B7280" }}>Giờ khởi hành:</span>
@@ -634,7 +872,7 @@ export default function TripsPage() {
                                 </div>
 
                                 <div className="admin-modal-actions">
-                                    <button className="admin-btn admin-btn-outline" onClick={() => setStep(3)}>Quay lại</button>
+                                    <button className="admin-btn admin-btn-outline" onClick={() => setStep(4)}>Quay lại</button>
                                     <button className="admin-btn admin-btn-primary" onClick={handleConfirmCreate}>
                                         Xác nhận lên kế hoạch
                                     </button>

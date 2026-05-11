@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Phone, Languages, User } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth";
+import NotificationBell from "./NotificationBell";
 
 export default function Header() {
   const { user, logout, isAuthenticated } = useAuth()
@@ -46,6 +47,7 @@ export default function Header() {
         </nav>
 
         <div className="header-right">
+          {isAuthenticated && <NotificationBell />}
           <button className="btn-icon" aria-label="Ngôn ngữ">
             <Languages className="icon" />
           </button>
