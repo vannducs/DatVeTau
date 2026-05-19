@@ -32,9 +32,9 @@ interface PassengerForm {
     seatId: number;
     seatNumber: string;
     carriageType: string;
-    carriageNumber: number;
-    basePrice: number;      // Giá gốc từ seat
-    ticketPrice: number;    // Giá sau giảm
+    carriageOrder: number;
+    basePrice: number;
+    ticketPrice: number;
     passengerType: PassengerType;
     passengerName: string;
     idNumber: string;
@@ -43,11 +43,9 @@ interface PassengerForm {
 }
 
 const CARRIAGE_LABEL: Record<string, string> = {
-    hard_seat: "Ngồi cứng",
-    soft_seat: "Ngồi mềm",
-    hard_sleeper: "Giường khoang 6",
-    soft_sleeper: "Giường khoang 4",
-    vip_ac_sleeper: "Giường VIP",
+    seat:      "Ghế ngồi",
+    sleeper_3: "Nằm khoang 6",
+    sleeper_2: "Nằm khoang 4",
 };
 
 /** Từ số lượng mỗi loại → tạo mảng loại hành khách theo thứ tự ghế */
@@ -86,8 +84,8 @@ export default function PassengerInfoPage() {
 
     const tripId        = Number(searchParams.get("tripId"));
     const seatIds       = searchParams.get("seatIds")?.split(",").map(Number) || [];
-    const originId      = Number(searchParams.get("originId"));
-    const destinationId = Number(searchParams.get("destinationId"));
+    const fromStationId = Number(searchParams.get("fromStationId"));
+    const toStationId   = Number(searchParams.get("toStationId"));
 
     // Thông tin loại hành khách từ URL
     const adult   = Number(searchParams.get("adult")   || 1);
@@ -122,8 +120,8 @@ export default function PassengerInfoPage() {
         if (!tripId || seatIds.length === 0) return;
 
         Promise.all([
-            tripApi.getById(tripId, originId, destinationId),
-            tripApi.getSeats(tripId, originId, destinationId),
+            tripApi.getById(tripId, fromStationId, toStationId),
+            tripApi.getSeats(tripId, fromStationId, toStationId),
         ]).then(([tripRes, seatsRes]) => {
             setTrip(tripRes.data);
 
@@ -133,13 +131,13 @@ export default function PassengerInfoPage() {
             setForms(chosen.map((s, index) => {
                 const pType: PassengerType = passengerTypes[index] ?? "adult";
                 const discount = DISCOUNT[pType];
-                const basePrice = s.ticketPrice;
+                const basePrice = s.price;
                 const finalPrice = Math.round(basePrice * (1 - discount));
                 return {
                     seatId: s.id,
                     seatNumber: s.seatNumber,
                     carriageType: s.carriageType,
-                    carriageNumber: s.carriageNumber,
+                    carriageOrder: s.carriageOrder,
                     basePrice,
                     ticketPrice: finalPrice,
                     passengerType: pType,
@@ -185,8 +183,8 @@ export default function PassengerInfoPage() {
         const now = Date.now();
         const bookingData = {
             tripId,
-            boardLocationId: originId,
-            alightLocationId: destinationId,
+            fromStationId,
+            toStationId,
             passengers: forms,
             contact: { name: contactName, phone: contactPhone, email: contactEmail },
             totalPrice,
@@ -235,13 +233,13 @@ export default function PassengerInfoPage() {
                             <div className="pi-trip-info">
                                 <div className="pi-trip-badge">MỘT CHIỀU</div>
                                 <div className="pi-trip-route">
-                                    <span className="pi-trip-station">{trip.originName}</span>
+                                    <span className="pi-trip-station">{trip.fromStationName}</span>
                                     <div className="pi-trip-time-wrap">
-                                        <span className="pi-trip-time">{trip.departureTime}</span>
+                                        <span className="pi-trip-time">{trip.boardTime}</span>
                                         <span className="pi-trip-duration">{trip.duration}</span>
-                                        <span className="pi-trip-time">{trip.arrivalTime}</span>
+                                        <span className="pi-trip-time">{trip.alightTime}</span>
                                     </div>
-                                    <span className="pi-trip-station">{trip.destinationName}</span>
+                                    <span className="pi-trip-station">{trip.toStationName}</span>
                                 </div>
                                 <div className="pi-trip-train">
                                     <span className="material-icons-round" style={{ fontSize: 15, color: "#2F6FED", verticalAlign: "middle", marginRight: 4 }}>train</span>
@@ -274,8 +272,8 @@ export default function PassengerInfoPage() {
                                                 )}
                                             </span>
                                             <span className="pi-passenger-seat">
-                                                Toa {form.carriageNumber} • Ghế {form.seatNumber}&nbsp;
-                                                ({CARRIAGE_LABEL[form.carriageType]})
+                                                Toa {form.carriageOrder} • Ghế {form.seatNumber}&nbsp;
+                                                ({CARRIAGE_LABEL[form.carriageType] ?? form.carriageType})
                                             </span>
                                         </div>
 
@@ -422,7 +420,7 @@ export default function PassengerInfoPage() {
                                                 </span>
                                             )}
                                             <span className="pi-summary-seat">
-                                                Toa {form.carriageNumber} • Ghế {form.seatNumber}
+                                                Toa {form.carriageOrder} • Ghế {form.seatNumber}
                                             </span>
                                         </div>
                                         <div className="pi-summary-price-col">

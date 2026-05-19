@@ -1,17 +1,12 @@
 export interface SeatDTO {
     id: number;
     seatNumber: string;
-    berthPosition: string; // "upper" | "lower" | "middle" | "seat"
-    ticketPrice: number;
-    status: string;        // "available" | "booked" | "unavailable"
+    compartmentNo: number | null;
+    berthPosition: string;  // "seat" | "lower" | "middle" | "upper"
     carriageId: number;
-    carriageNumber: number;
-    carriageType: string;
-    isVip?: boolean;
-}
-
-export interface CarriageSeats {
-    carriageNumber: number;
-    carriageType: string;
-    seats: SeatDTO[];
+    carriageOrder: number;
+    carriageType: string;   // "seat" | "sleeper_3" | "sleeper_2"
+    isVip: boolean;
+    status: string;         // "available" | "booked"
+    price: number;
 }

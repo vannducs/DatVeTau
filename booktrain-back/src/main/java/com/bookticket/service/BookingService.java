@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.time.OffsetDateTime;
 import java.util.Date;
+import java.util.List;
 import java.util.Random;
 
 @Service
@@ -21,36 +22,29 @@ public class BookingService {
     private final OrderRepository       orderRepository;
     private final OrderItemRepository   orderItemRepository;
     private final PaymentRepository     paymentRepository;
-    private final TrainSeatRepository   seatRepository;
+    private final SeatRepository        seatRepository;
     private final TrainTripRepository   tripRepository;
-    private final TrainRouteRepository  routeRepository;
     private final SeatBookingRepository seatBookingRepository;
-    private final LocationRepository    locationRepository;
+    private final TrainStationRepository stationRepository;
     private final UserRepository        userRepository;
+    private final AdminLogRepository    adminLogRepository;
 
     @Transactional
     public String createOrder(CreateBookingRequest req, String userEmail) {
         User customer = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy user: " + userEmail));
 
-        TrainTrip trip = tripRepository.findById(req.tripId().intValue())
+        TrainTrip trip = tripRepository.findById(req.tripId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy chuyến: " + req.tripId()));
 
-        Location boardLocation  = locationRepository.findById(req.boardLocationId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy ga đi: " + req.boardLocationId()));
-        Location alightLocation = locationRepository.findById(req.alightLocationId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy ga đến: " + req.alightLocationId()));
+        TrainStation fromStation = stationRepository.findById(req.fromStationId())
+                .orElseThrow(() -> new RuntimeException("Ga đi không tồn tại"));
+        TrainStation toStation   = stationRepository.findById(req.toStationId())
+                .orElseThrow(() -> new RuntimeException("Ga đến không tồn tại"));
 
-        Integer trainId = trip.getTrain().getId();
-        TrainRoute boardRoute  = routeRepository.findByTrainIdAndLocationId(trainId, req.boardLocationId())
-                .orElseThrow(() -> new RuntimeException("Ga đi không thuộc tuyến tàu"));
-        TrainRoute alightRoute = routeRepository.findByTrainIdAndLocationId(trainId, req.alightLocationId())
-                .orElseThrow(() -> new RuntimeException("Ga đến không thuộc tuyến tàu"));
+        int fromOrderIndex = fromStation.getOrderIndex();
+        int toOrderIndex   = toStation.getOrderIndex();
 
-        int boardStop  = boardRoute.getStopOrder();
-        int alightStop = alightRoute.getStopOrder();
-
-        // Build order
         BigDecimal subtotal    = req.passengers().stream()
                 .map(p -> BigDecimal.valueOf(p.ticketPrice()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -59,7 +53,7 @@ public class BookingService {
 
         String date      = new SimpleDateFormat("MMdd").format(new Date());
         int    rand      = new Random().nextInt(9000) + 1000;
-        String orderCode = date + rand;
+        String orderCode = "DV" + date + rand;
 
         Order order = Order.builder()
                 .orderCode(orderCode)
@@ -73,31 +67,28 @@ public class BookingService {
         order = orderRepository.save(order);
 
         for (CreateBookingRequest.PassengerDto p : req.passengers()) {
-            // Conflict check
             long conflicts = seatBookingRepository.countConflicts(
-                    p.seatId().intValue(), trip.getId(), boardStop, alightStop);
+                    p.seatId(), trip.getId(), fromOrderIndex, toOrderIndex);
             if (conflicts > 0) {
-                throw new RuntimeException("Ghế " + p.seatNumber() + " đã được đặt cho đoạn này. Vui lòng chọn ghế khác.");
+                throw new RuntimeException(
+                        "Ghế " + p.seatNumber() + " đã được đặt cho đoạn này. Vui lòng chọn ghế khác.");
             }
 
-            TrainSeat seat = seatRepository.findById(p.seatId().intValue())
+            Seat seat = seatRepository.findById(p.seatId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy ghế: " + p.seatId()));
 
-            // Create SeatBooking first (orderItem FK left null initially)
             SeatBooking sb = SeatBooking.builder()
                     .seat(seat)
                     .trip(trip)
-                    .boardLocation(boardLocation)
-                    .alightLocation(alightLocation)
-                    .boardStopOrder(boardStop)
-                    .alightStopOrder(alightStop)
+                    .fromStation(fromStation)
+                    .toStation(toStation)
+                    .fromOrderIndex(fromOrderIndex)
+                    .toOrderIndex(toOrderIndex)
                     .ticketPrice(BigDecimal.valueOf(p.ticketPrice()))
                     .status("confirmed")
-                    .createdAt(OffsetDateTime.now())
                     .build();
             sb = seatBookingRepository.save(sb);
 
-            // Create OrderItem referencing the SeatBooking
             OrderItem item = OrderItem.builder()
                     .order(order)
                     .seatBooking(sb)
@@ -108,25 +99,61 @@ public class BookingService {
                     .ticketPrice(BigDecimal.valueOf(p.ticketPrice()))
                     .status("confirmed")
                     .build();
-            item = orderItemRepository.save(item);
-
-            // Link SeatBooking back to OrderItem
-            sb.setOrderItem(item);
-            seatBookingRepository.save(sb);
+            orderItemRepository.save(item);
         }
+
+        try {
+            adminLogRepository.save(AdminLog.builder()
+                    .adminId(customer.getId())
+                    .action("CREATE_ORDER")
+                    .targetType("order")
+                    .detail("Order " + orderCode + " created by " + userEmail)
+                    .build());
+        } catch (Exception ignored) {}
 
         return orderCode;
     }
 
     @Transactional
     public void confirmPayment(ConfirmPaymentRequest req) {
-        Order order = orderRepository.findByOrderCode(req.orderCode())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + req.orderCode()));
+        System.out.println("[confirmPayment] orderCode=" + req.orderCode()
+                + " txn=" + req.transactionNo() + " amount=" + req.amount());
 
-        if ("paid".equals(order.getStatus())) return; // idempotent
+        // Tìm chính xác trước; nếu không có thì tìm theo suffix (compat với orderCode cũ bị cắt ngắn bởi VNPay)
+        Order order = orderRepository.findByOrderCode(req.orderCode()).orElse(null);
+        if (order == null) {
+            List<Order> matches = orderRepository.findByOrderCodeEndingWith(req.orderCode());
+            if (matches.size() == 1) {
+                order = matches.get(0);
+                System.out.println("[confirmPayment] found by suffix: " + order.getOrderCode());
+            }
+        }
+        if (order == null) {
+            throw new RuntimeException("Không tìm thấy đơn hàng: " + req.orderCode());
+        }
+
+        if ("paid".equals(order.getStatus())) {
+            System.out.println("[confirmPayment] order " + req.orderCode() + " already paid — checking payment record");
+            boolean hasPayment = !paymentRepository.findByOrderId(order.getId()).isEmpty();
+            if (!hasPayment) {
+                // Order is paid but payment record missing — create it now
+                Payment payment = Payment.builder()
+                        .order(order)
+                        .paymentMethod("VNPay")
+                        .amount(BigDecimal.valueOf(req.amount()))
+                        .status("success")
+                        .transactionCode(req.transactionNo())
+                        .paidAt(OffsetDateTime.now())
+                        .build();
+                paymentRepository.save(payment);
+                System.out.println("[confirmPayment] backfilled missing payment for " + req.orderCode());
+            }
+            return;
+        }
 
         order.setStatus("paid");
         orderRepository.save(order);
+        System.out.println("[confirmPayment] order " + req.orderCode() + " → paid");
 
         Payment payment = Payment.builder()
                 .order(order)
@@ -137,6 +164,6 @@ public class BookingService {
                 .paidAt(OffsetDateTime.now())
                 .build();
         paymentRepository.save(payment);
-        // SeatBookings are already 'confirmed' from createOrder — no update needed
+        System.out.println("[confirmPayment] payment saved for " + req.orderCode());
     }
 }

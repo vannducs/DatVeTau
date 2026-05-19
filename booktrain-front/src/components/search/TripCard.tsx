@@ -5,10 +5,16 @@ import LoginRequiredModal from "../common/LoginRequiredModal";
 import type { TripResult } from "../../types/trip";
 import "./tripCard.css";
 
+const CARRIAGE_LABEL: Record<string, string> = {
+    seat:      "Ghế ngồi",
+    sleeper_3: "Nằm khoang 6",
+    sleeper_2: "Nằm khoang 4",
+};
+
 interface TripCardProps {
     trip: TripResult;
-    originId: number;
-    destinationId: number;
+    fromStationId: number;
+    toStationId: number;
     adult?: number;
     child?: number;
     elderly?: number;
@@ -16,7 +22,7 @@ interface TripCardProps {
     union?: number;
 }
 
-export default function TripCard({ trip, originId, destinationId, adult = 1, child = 0, elderly = 0, student = 0, union = 0 }: TripCardProps) {
+export default function TripCard({ trip, fromStationId, toStationId, adult = 1, child = 0, elderly = 0, student = 0, union = 0 }: TripCardProps) {
     const { isAuthenticated } = useAuth();
     const navigate = useNavigate();
     const [showModal, setShowModal] = useState(false);
@@ -31,11 +37,11 @@ export default function TripCard({ trip, originId, destinationId, adult = 1, chi
             setShowModal(true);
             return;
         }
-        navigate(`/trains/booking/${trip.id}?originId=${originId}&destinationId=${destinationId}${passengerParams}`);
+        navigate(`/trains/booking/${trip.tripId}?fromStationId=${fromStationId}&toStationId=${toStationId}${passengerParams}`);
     }
 
     function handleConfirmLogin() {
-        sessionStorage.setItem("redirectAfterLogin", `/trains/booking/${trip.id}?originId=${originId}&destinationId=${destinationId}${passengerParams}`);
+        sessionStorage.setItem("redirectAfterLogin", `/trains/booking/${trip.tripId}?fromStationId=${fromStationId}&toStationId=${toStationId}${passengerParams}`);
         setShowModal(false);
         navigate("/login");
     }
@@ -43,12 +49,11 @@ export default function TripCard({ trip, originId, destinationId, adult = 1, chi
     return (
         <>
             <div className="trip-card">
-                {/* Phần trên: giờ đi, tuyến, tên tàu */}
                 <div className="trip-card-left">
                     <div className="trip-times">
                         <div className="trip-time-block">
-                            <span className="trip-hour">{trip.departureTime}</span>
-                            <span className="trip-station">{trip.originName}</span>
+                            <span className="trip-hour">{trip.boardTime}</span>
+                            <span className="trip-station">{trip.fromStationName}</span>
                         </div>
 
                         <div className="trip-middle">
@@ -65,14 +70,12 @@ export default function TripCard({ trip, originId, destinationId, adult = 1, chi
                         </div>
 
                         <div className="trip-time-block trip-time-block--right">
-                            <span className="trip-hour">{trip.arrivalTime}</span>
-                            <span className="trip-station">{trip.destinationName}</span>
+                            <span className="trip-hour">{trip.alightTime}</span>
+                            <span className="trip-station">{trip.toStationName}</span>
                         </div>
                     </div>
 
-                    {/* Tên tàu */}
                     <div className="trip-train-info">
-                        <span className="material-icons-round" style={{ fontSize: 16, color: "#2F6FED", verticalAlign: "middle" }}>train</span>
                         <span className="train-code">{trip.trainCode}</span>
                         {trip.trainName && (
                             <span className="train-name">{trip.trainName}</span>
@@ -80,18 +83,20 @@ export default function TripCard({ trip, originId, destinationId, adult = 1, chi
                     </div>
                 </div>
 
-                {/* Phần dưới: giá vé + nút đặt */}
                 <div className="trip-card-right">
                     <div className="trip-prices-scroll">
                         <div className="trip-prices">
-                            {trip.carriagePrices.map((cp) => (
-                                <div key={cp.carriageType} className="price-item">
-                                    <span className="price-type">{cp.carriageTypeLabel}</span>
+                            {trip.carriageSummary.map((cs) => (
+                                <div key={cs.carriageOrder} className="price-item">
+                                    <span className="price-type">
+                                        {CARRIAGE_LABEL[cs.carriageType] ?? cs.carriageType}
+                                        {cs.isVip && " ★"}
+                                    </span>
                                     <span className="price-amount">
-                                        Từ {formatPrice(cp.minPrice)}
+                                        Từ {formatPrice(cs.minPrice)}
                                     </span>
                                     <span className="price-seats">
-                                        còn {cp.availableSeats} chỗ
+                                        còn {cs.availableSeats} chỗ
                                     </span>
                                 </div>
                             ))}
@@ -100,14 +105,13 @@ export default function TripCard({ trip, originId, destinationId, adult = 1, chi
 
                     <button className="btn-book-trip" onClick={handleBooking}>
                         Đặt vé
-                        {trip.carriagePrices.length > 0 && (
+                        {trip.carriageSummary.length > 0 && (
                             <span className="btn-book-hint">Giá rẻ nhất</span>
                         )}
                     </button>
                 </div>
             </div>
 
-            {/* Popup yêu cầu đăng nhập */}
             {showModal && (
                 <LoginRequiredModal
                     onConfirm={handleConfirmLogin}

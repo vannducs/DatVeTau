@@ -2,7 +2,6 @@ package com.bookticket.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -18,25 +17,26 @@ public class TrainTrip {
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "train_id")
+    @JoinColumn(name = "train_id", nullable = false)
     private Train train;
 
-    @Column(name = "departure_date")
-    private LocalDate departureDate;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "from_station_id", nullable = false)
+    private TrainStation fromStation;
 
-    @Column(name = "departure_time")
-    private OffsetDateTime departureTime;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "to_station_id", nullable = false)
+    private TrainStation toStation;
 
-    @Column(name = "arrival_time")
-    private OffsetDateTime arrivalTime;
+    @Column(name = "departure_datetime", nullable = false)
+    private OffsetDateTime departureDatetime;
 
+    @Column(name = "arrival_datetime", nullable = false)
+    private OffsetDateTime arrivalDatetime;
+
+    // open | cancelled | completed
+    @Column(nullable = false, length = 20)
     private String status;
-
-    @Column(name = "origin_id")
-    private Integer originId;
-
-    @Column(name = "destination_id")
-    private Integer destinationId;
 
     @Column(name = "created_by")
     private Integer createdBy;
@@ -47,6 +47,15 @@ public class TrainTrip {
     @Column(name = "cancelled_at")
     private OffsetDateTime cancelledAt;
 
-    @Column(name = "cancel_reason")
+    @Column(name = "cancel_reason", columnDefinition = "TEXT")
     private String cancelReason;
+
+    @Column(name = "created_at", updatable = false)
+    private OffsetDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (status == null) status = "open";
+        createdAt = OffsetDateTime.now();
+    }
 }

@@ -44,10 +44,7 @@ public class VNPayService {
         cal.add(Calendar.MINUTE, 15);
         String vnpExpireDate = new SimpleDateFormat("yyyyMMddHHmmss").format(cal.getTime());
 
-        // Giới hạn orderCode tối đa 8 ký tự cho sandbox
-        String txnRef = orderCode.length() > 8
-                ? orderCode.substring(orderCode.length() - 8)
-                : orderCode;
+        String txnRef = orderCode;
 
         Map<String, String> vnpParams = new TreeMap<>();
         vnpParams.put("vnp_Version",    vnpVersion);

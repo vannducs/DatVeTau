@@ -9,10 +9,10 @@ interface PassengerForm {
     seatId: number;
     seatNumber: string;
     carriageType: string;
-    carriageNumber: number;
+    carriageOrder: number;
     basePrice: number;
     ticketPrice: number;
-    passengerType: string;   // "adult" | "child" | "elderly" | "student" | "union"
+    passengerType: string;
     passengerName: string;
     idNumber: string;
     phoneNumber: string;
@@ -21,8 +21,8 @@ interface PassengerForm {
 
 interface BookingData {
     tripId: number;
-    boardLocationId: number;
-    alightLocationId: number;
+    fromStationId: number;
+    toStationId: number;
     passengers: PassengerForm[];
     contact: { name: string; phone: string; email: string };
     totalPrice: number;
@@ -30,11 +30,9 @@ interface BookingData {
 }
 
 const CARRIAGE_LABEL: Record<string, string> = {
-    hard_seat: "Ngồi cứng",
-    soft_seat: "Ngồi mềm",
-    hard_sleeper: "Giường khoang 6",
-    soft_sleeper: "Giường khoang 4",
-    vip_ac_sleeper: "Giường VIP",
+    seat:      "Ghế ngồi",
+    sleeper_3: "Nằm khoang 6",
+    sleeper_2: "Nằm khoang 4",
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -62,7 +60,7 @@ export default function PaymentPage() {
         const parsed: BookingData = JSON.parse(raw);
         setBookingData(parsed);
 
-        tripApi.getById(parsed.tripId).then((res: { data: TripResult }) => {
+        tripApi.getById(parsed.tripId, parsed.fromStationId, parsed.toStationId).then((res: { data: TripResult }) => {
             setTripInfo(res.data);
         });
 
@@ -101,9 +99,9 @@ export default function PaymentPage() {
             const orderRes = await axios.post(
                 "/api/booking/create",
                 {
-                    tripId:           bookingData!.tripId,
-                    boardLocationId:  bookingData!.boardLocationId,
-                    alightLocationId: bookingData!.alightLocationId,
+                    tripId:        bookingData!.tripId,
+                    fromStationId: bookingData!.fromStationId,
+                    toStationId:   bookingData!.toStationId,
                     passengers:       bookingData!.passengers,
                     contact:          bookingData!.contact,
                     totalPrice:       bookingData!.totalPrice,
@@ -179,20 +177,20 @@ export default function PaymentPage() {
 
                             {tripInfo && (
                                 <div className="pay-trip-route" style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-                                    <span className="pay-trip-station">{tripInfo.originName}</span>
+                                    <span className="pay-trip-station">{tripInfo.fromStationName}</span>
 
                                     <div className="pay-trip-middle" style={{ display: "flex", flexDirection: "row", alignItems: "center", flex: 1, justifyContent: "center" }}>
-                                        <span className="pay-trip-time">{tripInfo.departureTime}</span>
+                                        <span className="pay-trip-time">{tripInfo.boardTime}</span>
                                         <div className="pay-trip-center" style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "0 12px" }}>
                                             <span className="pay-trip-duration">{tripInfo.duration}</span>
                                             {tripInfo.nextDay && (
                                                 <span className="pay-next-day">+1 ngày</span>
                                             )}
                                         </div>
-                                        <span className="pay-trip-time">{tripInfo.arrivalTime}</span>
+                                        <span className="pay-trip-time">{tripInfo.alightTime}</span>
                                     </div>
 
-                                    <span className="pay-trip-station">{tripInfo.destinationName}</span>
+                                    <span className="pay-trip-station">{tripInfo.toStationName}</span>
                                 </div>
                             )}
 
@@ -281,8 +279,8 @@ export default function PaymentPage() {
                                         <div className="pay-summary-item-label">
                                             <span>{label} {displayIdx}</span>
                                             <span className="pay-summary-seat">
-                                                Toa {p.carriageNumber} - Ghế {p.seatNumber}&nbsp;
-                                                ({CARRIAGE_LABEL[p.carriageType]})
+                                                Toa {p.carriageOrder} - Ghế {p.seatNumber}&nbsp;
+                                                ({CARRIAGE_LABEL[p.carriageType] ?? p.carriageType})
                                             </span>
                                         </div>
                                         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>

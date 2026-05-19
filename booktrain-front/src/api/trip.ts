@@ -1,18 +1,18 @@
 import api from "./auth";
 
 export const tripApi = {
-    search: (originId: number, destinationId: number, date: string) =>
+    search: (fromStationId: number, toStationId: number, date: string) =>
         api.get("/trips/search", {
-            params: { originId, destinationId, date }
+            params: { fromStationId, toStationId, date }
         }),
 
-    getSeats: (tripId: number, originId: number, destinationId: number) =>
-        api.get(`/trips/${tripId}/seats`, {
-            params: { originId, destinationId }
-        }),
-
-    getById: (tripId: number, originId?: number, destinationId?: number) =>
+    getById: (tripId: number, fromStationId: number, toStationId: number) =>
         api.get(`/trips/${tripId}`, {
-            params: { originId, destinationId }
+            params: { fromStationId, toStationId }
+        }),
+
+    getSeats: (tripId: number, fromStationId: number, toStationId: number) =>
+        api.get(`/trips/${tripId}/seats`, {
+            params: { fromStationId, toStationId }
         }),
 };

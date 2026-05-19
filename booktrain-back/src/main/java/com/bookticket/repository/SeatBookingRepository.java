@@ -11,20 +11,28 @@ public interface SeatBookingRepository extends JpaRepository<SeatBooking, Intege
 
     @Query("""
         SELECT COUNT(sb) FROM SeatBooking sb
-        WHERE sb.seat.id   = :seatId
-          AND sb.trip.id   = :tripId
-          AND sb.status    = 'confirmed'
-          AND sb.boardStopOrder  < :alightStopOrder
-          AND sb.alightStopOrder > :boardStopOrder
+        WHERE sb.seat.id        = :seatId
+          AND sb.trip.id        = :tripId
+          AND sb.status         = 'confirmed'
+          AND sb.fromOrderIndex < :toOrderIndex
+          AND sb.toOrderIndex   > :fromOrderIndex
     """)
     long countConflicts(
-            @Param("seatId")          Integer seatId,
-            @Param("tripId")          Integer tripId,
-            @Param("boardStopOrder")  int boardStopOrder,
-            @Param("alightStopOrder") int alightStopOrder
+            @Param("seatId")         Integer seatId,
+            @Param("tripId")         Integer tripId,
+            @Param("fromOrderIndex") int fromOrderIndex,
+            @Param("toOrderIndex")   int toOrderIndex
     );
 
     List<SeatBooking> findByTripId(Integer tripId);
 
-    List<SeatBooking> findByOrderItemId(Integer orderItemId);
+    @Query("""
+        SELECT sb FROM SeatBooking sb
+        JOIN FETCH sb.seat s
+        JOIN FETCH s.carriage c
+        WHERE sb.trip.id = :tripId AND sb.status = 'confirmed'
+    """)
+    List<SeatBooking> findConfirmedByTripId(@Param("tripId") Integer tripId);
+
+    List<SeatBooking> findByTripIdAndStatus(Integer tripId, String status);
 }

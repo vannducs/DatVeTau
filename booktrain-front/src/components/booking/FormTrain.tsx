@@ -6,7 +6,7 @@ import PassengerSelector from "./PassengerSelector";
 import StationSelector from "./StationSelector";
 import type { TrainPassengerCount } from "../../types/passenger";
 import type { LocationDTO } from "../../types/location";
-import { locationApi } from "../../api/location";
+import { stationApi } from "../../api/station";
 
 const initialPassengers: TrainPassengerCount = {
   adult: 1,
@@ -36,7 +36,18 @@ export default function FormTrain({
   const [passengerCount, setPassengerCount] = useState<TrainPassengerCount>(initialPassengers);
 
   useEffect(() => {
-    locationApi.getTrainStations().then((res) => setTrainStations(res.data)).catch(() => {});
+    stationApi.getAll().then(res => {
+      const mapped: LocationDTO[] = res.data.map(s => ({
+        id: s.id,
+        name: s.name,
+        locationType: "train_station",
+        provinceName: s.city,
+        provinceId: null,
+        address: null,
+        iataCode: null,
+      }));
+      setTrainStations(mapped);
+    }).catch(() => {});
   }, []);
 
   // Cập nhật khi props thay đổi (khi SearchResultPage load xong dữ liệu)
@@ -61,7 +72,7 @@ export default function FormTrain({
     if (!departure || !destination || !departureDate) return;
     const { adult, child, elderly, student, union } = passengerCount;
     navigate(
-      `/trains/search?originId=${departure.id}&destinationId=${destination.id}&date=${departureDate}` +
+      `/trains/search?fromStationId=${departure.id}&toStationId=${destination.id}&date=${departureDate}` +
       `&adult=${adult}&child=${child}&elderly=${elderly}&student=${student}&union=${union}`
     );
   }

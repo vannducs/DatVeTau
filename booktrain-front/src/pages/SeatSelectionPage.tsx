@@ -14,21 +14,17 @@ interface CarriageGroup {
 }
 
 const CARRIAGE_LABEL: Record<string, string> = {
-    seat:           "Ghế ngồi",
-    sleeper:        "Ghế nằm",
-    hard_seat:      "Ngồi cứng",
-    soft_seat:      "Ngồi mềm",
-    hard_sleeper:   "Giường khoang 6",
-    soft_sleeper:   "Giường khoang 4",
-    vip_ac_sleeper: "Giường VIP",
+    seat:      "Ghế ngồi",
+    sleeper_3: "Nằm khoang 6",
+    sleeper_2: "Nằm khoang 4",
 };
 
 export default function SeatSelectionPage() {
     const { tripId } = useParams();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const originId      = Number(searchParams.get("originId"));
-    const destinationId = Number(searchParams.get("destinationId"));
+    const fromStationId = Number(searchParams.get("fromStationId"));
+    const toStationId   = Number(searchParams.get("toStationId"));
     const adult   = Number(searchParams.get("adult")  || 1);
     const child   = Number(searchParams.get("child")  || 0);
     const elderly = Number(searchParams.get("elderly")|| 0);
@@ -42,8 +38,8 @@ export default function SeatSelectionPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!tripId || !originId || !destinationId) return;
-        tripApi.getSeats(Number(tripId), originId, destinationId)
+        if (!tripId || !fromStationId || !toStationId) return;
+        tripApi.getSeats(Number(tripId), fromStationId, toStationId)
             .then(res => {
                 const data: Record<string, SeatDTO[]> = res.data;
                 const groups: CarriageGroup[] = Object.entries(data).map(([num, seats]) => ({
@@ -74,7 +70,7 @@ export default function SeatSelectionPage() {
         return selectedSeats.some(s => s.id === seat.id);
     }
 
-    const totalPrice = selectedSeats.reduce((sum, s) => sum + s.ticketPrice, 0);
+    const totalPrice = selectedSeats.reduce((sum, s) => sum + s.price, 0);
 
     function getSeatClass(seat: SeatDTO) {
         if (seat.status === "booked") return "ss-seat ss-seat--booked";
@@ -203,8 +199,7 @@ export default function SeatSelectionPage() {
         </>
     );
 
-    const isSleeper = (type: string) =>
-        type === "sleeper" || ["soft_sleeper", "hard_sleeper", "vip_ac_sleeper"].includes(type);
+    const isSleeper = (type: string) => type === "sleeper_3" || type === "sleeper_2";
 
     return (
         <>
@@ -317,7 +312,7 @@ export default function SeatSelectionPage() {
                         onClick={() => {
                             const seatIds = selectedSeats.map(s => s.id).join(",");
                             navigate(
-                                `/trains/passenger-info?tripId=${tripId}&seatIds=${seatIds}&originId=${originId}&destinationId=${destinationId}` +
+                                `/trains/passenger-info?tripId=${tripId}&seatIds=${seatIds}&fromStationId=${fromStationId}&toStationId=${toStationId}` +
                                 `&adult=${adult}&child=${child}&elderly=${elderly}&student=${student}&union=${union}`
                             );
                         }}>

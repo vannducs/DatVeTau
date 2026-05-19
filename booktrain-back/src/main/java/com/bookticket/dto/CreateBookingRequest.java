@@ -3,19 +3,20 @@ package com.bookticket.dto;
 import java.util.List;
 
 public record CreateBookingRequest(
-        Long tripId,
-        Integer boardLocationId,
-        Integer alightLocationId,
+        Integer tripId,
+        Integer fromStationId,
+        Integer toStationId,
         List<PassengerDto> passengers,
         ContactDto contact,
         Long totalPrice,
         Long serviceFee
 ) {
     public record PassengerDto(
-            Long    seatId,
+            Integer seatId,
             String  seatNumber,
+            String  berthPosition,
+            Integer carriageOrder,
             String  carriageType,
-            Integer carriageNumber,
             Long    ticketPrice,
             String  passengerName,
             String  idNumber,

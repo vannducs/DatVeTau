@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { tripAdminApi, trainAdminApi } from "../api/adminApi";
-import { locationApi } from "../../api/location";
+import { stationApi } from "../../api/station";
 import type { LocationDTO } from "../../types/location";
 import axios from "axios";
 
@@ -256,7 +256,18 @@ export default function TripsPage() {
 
     useEffect(() => {
         trainAdminApi.list().then(r => setAllTrains(r.data));
-        locationApi.getTrainStations().then(r => setAllLocations(r.data)).catch(() => {});
+        stationApi.getAll().then(r => {
+            const mapped: LocationDTO[] = r.data.map(s => ({
+                id: s.id,
+                name: s.name,
+                locationType: "train_station",
+                provinceName: s.city,
+                provinceId: null,
+                address: null,
+                iataCode: null,
+            }));
+            setAllLocations(mapped);
+        }).catch(() => {});
     }, []);
 
     // ─── Wizard helpers ───────────────────────────────────────────────────────────
@@ -342,9 +353,11 @@ export default function TripsPage() {
         setCarriages(res.data);
         const initPrices: PriceMap = {};
         for (const c of res.data as CarriageOption[]) {
-            initPrices[c.id] = c.carriage_type === "sleeper"
+            initPrices[c.id] = c.carriage_type === "sleeper_3"
                 ? { lower: "", middle: "", upper: "" }
-                : { seat: "" };
+                : c.carriage_type === "sleeper_2"
+                    ? { lower: "", upper: "" }
+                    : { seat: "" };
         }
         setPrices(initPrices);
         setStep(4);
@@ -354,10 +367,15 @@ export default function TripsPage() {
         setWizErr("");
         for (const c of carriages) {
             const p = prices[c.id] ?? {};
-            if (c.carriage_type === "sleeper") {
+            if (c.carriage_type === "sleeper_3") {
                 if (!p.lower || !p.middle || !p.upper)
-                    { setWizErr(`Toa ${c.carriage_number} (ghế nằm) chưa nhập đủ giá 3 tầng`); return; }
+                    { setWizErr(`Toa ${c.carriage_number} (nằm khoang 6) chưa nhập đủ giá 3 tầng`); return; }
                 if (Number(p.lower) <= 0 || Number(p.middle) <= 0 || Number(p.upper) <= 0)
+                    { setWizErr(`Giá vé Toa ${c.carriage_number} phải lớn hơn 0`); return; }
+            } else if (c.carriage_type === "sleeper_2") {
+                if (!p.lower || !p.upper)
+                    { setWizErr(`Toa ${c.carriage_number} (nằm khoang 4) chưa nhập đủ giá 2 tầng`); return; }
+                if (Number(p.lower) <= 0 || Number(p.upper) <= 0)
                     { setWizErr(`Giá vé Toa ${c.carriage_number} phải lớn hơn 0`); return; }
             } else {
                 if (!p.seat) { setWizErr(`Toa ${c.carriage_number} (ghế ngồi) chưa nhập giá`); return; }
@@ -386,26 +404,36 @@ export default function TripsPage() {
 
     async function handleConfirmCreate() {
         setWizErr("");
-        const seatPrices: { carriageId: number; berthPosition: string; price: number }[] = [];
+        // Build segmentPrices deduplicated by (carriageType, berthPosition)
+        type SegPrice = { fromStationId: number; toStationId: number; carriageType: string; berthPosition: string; price: number };
+        const segmentPrices: SegPrice[] = [];
+        const typesSeen = new Set<string>();
         for (const c of carriages) {
+            if (typesSeen.has(c.carriage_type)) continue;
+            typesSeen.add(c.carriage_type);
             const p = prices[c.id] ?? {};
-            if (c.carriage_type === "sleeper") {
-                seatPrices.push({ carriageId: c.id, berthPosition: "lower",  price: Number(p.lower)  });
-                seatPrices.push({ carriageId: c.id, berthPosition: "middle", price: Number(p.middle) });
-                seatPrices.push({ carriageId: c.id, berthPosition: "upper",  price: Number(p.upper)  });
+            if (c.carriage_type === "sleeper_3") {
+                segmentPrices.push({ fromStationId: originId!, toStationId: destId!, carriageType: c.carriage_type, berthPosition: "lower",  price: Number(p.lower) });
+                segmentPrices.push({ fromStationId: originId!, toStationId: destId!, carriageType: c.carriage_type, berthPosition: "middle", price: Number(p.middle) });
+                segmentPrices.push({ fromStationId: originId!, toStationId: destId!, carriageType: c.carriage_type, berthPosition: "upper",  price: Number(p.upper) });
+            } else if (c.carriage_type === "sleeper_2") {
+                segmentPrices.push({ fromStationId: originId!, toStationId: destId!, carriageType: c.carriage_type, berthPosition: "lower",  price: Number(p.lower) });
+                segmentPrices.push({ fromStationId: originId!, toStationId: destId!, carriageType: c.carriage_type, berthPosition: "upper",  price: Number(p.upper) });
             } else {
-                seatPrices.push({ carriageId: c.id, berthPosition: "seat", price: Number(p.seat) });
+                segmentPrices.push({ fromStationId: originId!, toStationId: destId!, carriageType: c.carriage_type, berthPosition: "seat", price: Number(p.seat) });
             }
         }
+
+        // Combine date + time into ISO datetime with Vietnam timezone (+07:00)
+        const departureDatetime = `${depDate}T${depTime}:00+07:00`;
 
         try {
             await tripAdminApi.create({
                 trainId: selTrain!.id,
-                originId, destinationId: destId,
-                departureDate: depDate,
-                departureTime: depTime,
-                durationMinutes: duration,
-                seatPrices,
+                fromStationId: originId,
+                toStationId: destId,
+                departureDatetime,
+                segmentPrices,
             });
             setMsg("Lên kế hoạch chuyến tàu thành công!");
             setShowWizard(false);
@@ -778,17 +806,34 @@ export default function TripsPage() {
                                             marginBottom: 12, background: "#FAFAFA"
                                         }}>
                                             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>
-                                                Toa {c.carriage_number} — {c.carriage_type === "sleeper" ? "Ghế nằm" : "Ghế ngồi"}
+                                                Toa {c.carriage_number} — {c.carriage_type === "sleeper_3" ? "Nằm khoang 6" : c.carriage_type === "sleeper_2" ? "Nằm khoang 4" : "Ghế ngồi"}
                                                 {c.is_vip && <span style={{ marginLeft: 6, background: "#FFC107", color: "#7B4F00", padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 700 }}>VIP</span>}
                                                 <span style={{ marginLeft: 8, color: "#6B7280", fontWeight: 400, fontSize: 12 }}>{c.seat_count} ghế</span>
                                             </div>
 
-                                            {c.carriage_type === "sleeper" ? (
+                                            {c.carriage_type === "sleeper_3" ? (
                                                 <div className="admin-grid-3" style={{ gap: 8 }}>
                                                     {(["lower", "middle", "upper"] as const).map(tier => (
                                                         <div key={tier} className="admin-form-group" style={{ marginBottom: 0 }}>
                                                             <label className="admin-form-label" style={{ fontSize: 11 }}>
                                                                 {tier === "lower" ? "Tầng dưới" : tier === "middle" ? "Tầng giữa" : "Tầng trên"} (đ)
+                                                            </label>
+                                                            <input type="number" className="admin-form-input" style={{ fontSize: 13 }}
+                                                                placeholder="0"
+                                                                value={prices[c.id]?.[tier] ?? ""}
+                                                                onChange={e => setPrices(prev => ({
+                                                                    ...prev,
+                                                                    [c.id]: { ...prev[c.id], [tier]: e.target.value }
+                                                                }))} />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : c.carriage_type === "sleeper_2" ? (
+                                                <div className="admin-grid-2" style={{ gap: 8 }}>
+                                                    {(["lower", "upper"] as const).map(tier => (
+                                                        <div key={tier} className="admin-form-group" style={{ marginBottom: 0 }}>
+                                                            <label className="admin-form-label" style={{ fontSize: 11 }}>
+                                                                {tier === "lower" ? "Tầng dưới" : "Tầng trên"} (đ)
                                                             </label>
                                                             <input type="number" className="admin-form-input" style={{ fontSize: 13 }}
                                                                 placeholder="0"
@@ -813,7 +858,6 @@ export default function TripsPage() {
                                                 </div>
                                             )}
 
-                                            {/* Nút áp dụng giá cho tất cả toa cùng loại */}
                                             {carriages.filter(cc => cc.carriage_type === c.carriage_type).length > 1 && (
                                                 <button type="button"
                                                     style={{
@@ -822,7 +866,7 @@ export default function TripsPage() {
                                                         borderRadius: 4, cursor: "pointer", fontWeight: 600,
                                                     }}
                                                     onClick={() => applyPriceToSameType(c.id)}>
-                                                    ↳ Áp dụng giá này cho tất cả toa {c.carriage_type === "sleeper" ? "nằm" : "ngồi"}
+                                                    ↳ Áp dụng giá này cho tất cả toa {c.carriage_type !== "seat" ? "nằm" : "ngồi"} cùng loại
                                                 </button>
                                             )}
                                         </div>
@@ -861,11 +905,13 @@ export default function TripsPage() {
                                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Bảng giá vé:</div>
                                     {carriages.map(c => (
                                         <div key={c.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4, padding: "4px 0", borderBottom: "1px solid #F3F4F6" }}>
-                                            <span>Toa {c.carriage_number} ({c.carriage_type === "sleeper" ? "Ghế nằm" : "Ghế ngồi"})</span>
+                                            <span>Toa {c.carriage_number} ({c.carriage_type === "sleeper_3" ? "Nằm khoang 6" : c.carriage_type === "sleeper_2" ? "Nằm khoang 4" : "Ghế ngồi"})</span>
                                             <span style={{ fontWeight: 600 }}>
-                                                {c.carriage_type === "sleeper"
+                                                {c.carriage_type === "sleeper_3"
                                                     ? `${Number(prices[c.id]?.lower ?? 0).toLocaleString("vi-VN")}đ / ${Number(prices[c.id]?.middle ?? 0).toLocaleString("vi-VN")}đ / ${Number(prices[c.id]?.upper ?? 0).toLocaleString("vi-VN")}đ`
-                                                    : `${Number(prices[c.id]?.seat ?? 0).toLocaleString("vi-VN")}đ`}
+                                                    : c.carriage_type === "sleeper_2"
+                                                        ? `${Number(prices[c.id]?.lower ?? 0).toLocaleString("vi-VN")}đ / ${Number(prices[c.id]?.upper ?? 0).toLocaleString("vi-VN")}đ`
+                                                        : `${Number(prices[c.id]?.seat ?? 0).toLocaleString("vi-VN")}đ`}
                                             </span>
                                         </div>
                                     ))}

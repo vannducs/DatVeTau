@@ -22,34 +22,25 @@ public class OrderService {
     private static final ZoneId            VN  = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
 
-    // ── Main order query — joins through seat_bookings ────────────────
     private static final String ORDER_SQL = """
             SELECT DISTINCT ON (o.id)
                 o.id, o.order_code, o.status,
                 o.total_amount, o.service_fee, o.created_at,
-                (tt.departure_date
-                    + tr_board.day_offset  * INTERVAL '1 day'
-                    + tr_board.departure_time)  AT TIME ZONE 'Asia/Ho_Chi_Minh' AS departure_time,
-                (tt.departure_date
-                    + tr_alight.day_offset * INTERVAL '1 day'
-                    + tr_alight.arrival_time)   AT TIME ZONE 'Asia/Ho_Chi_Minh' AS arrival_time,
+                tt.departure_datetime  AS departure_time,
+                tt.arrival_datetime    AS arrival_time,
                 t.train_code, t.train_name,
-                l_board.name  AS origin_name,
-                l_alight.name AS destination_name,
+                s_from.name AS origin_name,
+                s_to.name   AS destination_name,
                 p.payment_method, p.transaction_code, p.paid_at
             FROM orders o
-            JOIN users u            ON u.id       = o.customer_id
-            JOIN order_items oi     ON oi.order_id = o.id
-            JOIN seat_bookings sb   ON sb.id       = oi.seat_booking_id
-            JOIN train_trips tt     ON tt.id       = sb.trip_id
-            JOIN trains t           ON t.id        = tt.train_id
-            JOIN locations l_board  ON l_board.id  = sb.board_location_id
-            JOIN locations l_alight ON l_alight.id = sb.alight_location_id
-            JOIN train_routes tr_board  ON tr_board.train_id  = tt.train_id
-                                       AND tr_board.location_id = sb.board_location_id
-            JOIN train_routes tr_alight ON tr_alight.train_id  = tt.train_id
-                                        AND tr_alight.location_id = sb.alight_location_id
-            LEFT JOIN payments p    ON p.order_id  = o.id
+            JOIN users u               ON u.id         = o.customer_id
+            JOIN order_items oi        ON oi.order_id  = o.id
+            JOIN seat_bookings sb      ON sb.id        = oi.seat_booking_id
+            JOIN train_trips tt        ON tt.id        = sb.trip_id
+            JOIN trains t              ON t.id         = tt.train_id
+            JOIN train_stations s_from ON s_from.id    = sb.from_station_id
+            JOIN train_stations s_to   ON s_to.id      = sb.to_station_id
+            LEFT JOIN payments p       ON p.order_id   = o.id
             WHERE u.email = ?
             ORDER BY o.id, o.created_at DESC
             """;
@@ -58,29 +49,21 @@ public class OrderService {
             SELECT DISTINCT ON (o.id)
                 o.id, o.order_code, o.status,
                 o.total_amount, o.service_fee, o.created_at,
-                (tt.departure_date
-                    + tr_board.day_offset  * INTERVAL '1 day'
-                    + tr_board.departure_time)  AT TIME ZONE 'Asia/Ho_Chi_Minh' AS departure_time,
-                (tt.departure_date
-                    + tr_alight.day_offset * INTERVAL '1 day'
-                    + tr_alight.arrival_time)   AT TIME ZONE 'Asia/Ho_Chi_Minh' AS arrival_time,
+                tt.departure_datetime  AS departure_time,
+                tt.arrival_datetime    AS arrival_time,
                 t.train_code, t.train_name,
-                l_board.name  AS origin_name,
-                l_alight.name AS destination_name,
+                s_from.name AS origin_name,
+                s_to.name   AS destination_name,
                 p.payment_method, p.transaction_code, p.paid_at
             FROM orders o
-            JOIN users u            ON u.id       = o.customer_id
-            JOIN order_items oi     ON oi.order_id = o.id
-            JOIN seat_bookings sb   ON sb.id       = oi.seat_booking_id
-            JOIN train_trips tt     ON tt.id       = sb.trip_id
-            JOIN trains t           ON t.id        = tt.train_id
-            JOIN locations l_board  ON l_board.id  = sb.board_location_id
-            JOIN locations l_alight ON l_alight.id = sb.alight_location_id
-            JOIN train_routes tr_board  ON tr_board.train_id  = tt.train_id
-                                       AND tr_board.location_id = sb.board_location_id
-            JOIN train_routes tr_alight ON tr_alight.train_id  = tt.train_id
-                                        AND tr_alight.location_id = sb.alight_location_id
-            LEFT JOIN payments p    ON p.order_id  = o.id
+            JOIN users u               ON u.id         = o.customer_id
+            JOIN order_items oi        ON oi.order_id  = o.id
+            JOIN seat_bookings sb      ON sb.id        = oi.seat_booking_id
+            JOIN train_trips tt        ON tt.id        = sb.trip_id
+            JOIN trains t              ON t.id         = tt.train_id
+            JOIN train_stations s_from ON s_from.id    = sb.from_station_id
+            JOIN train_stations s_to   ON s_to.id      = sb.to_station_id
+            LEFT JOIN payments p       ON p.order_id   = o.id
             WHERE u.email = ? AND o.order_code = ?
             ORDER BY o.id
             """;
@@ -88,28 +71,38 @@ public class OrderService {
     private static final String PASSENGER_SQL = """
             SELECT oi.order_id,
                    oi.passenger_name, oi.id_number, oi.ticket_price,
-                   ts.seat_number,
-                   tc.carriage_number, tc.carriage_type
+                   s.seat_number,
+                   tca.carriage_order AS carriage_number,
+                   c.carriage_type
             FROM orders o
-            JOIN users u            ON u.id        = o.customer_id
-            JOIN order_items oi     ON oi.order_id  = o.id
-            JOIN seat_bookings sb   ON sb.id        = oi.seat_booking_id
-            JOIN train_seats ts     ON ts.id        = sb.seat_id
-            JOIN train_carriages tc ON tc.id        = ts.carriage_id
+            JOIN users u                        ON u.id          = o.customer_id
+            JOIN order_items oi                 ON oi.order_id   = o.id
+            JOIN seat_bookings sb               ON sb.id         = oi.seat_booking_id
+            JOIN seats s                        ON s.id          = sb.seat_id
+            JOIN carriages c                    ON c.id          = s.carriage_id
+            JOIN train_trips tt                 ON tt.id         = sb.trip_id
+            JOIN train_carriage_assignments tca ON tca.train_id    = tt.train_id
+                                               AND tca.carriage_id = s.carriage_id
+                                               AND tca.unassigned_at IS NULL
             WHERE u.email = ?
             """;
 
     private static final String PASSENGER_DETAIL_SQL = """
             SELECT oi.order_id,
                    oi.passenger_name, oi.id_number, oi.ticket_price,
-                   ts.seat_number,
-                   tc.carriage_number, tc.carriage_type
+                   s.seat_number,
+                   tca.carriage_order AS carriage_number,
+                   c.carriage_type
             FROM orders o
-            JOIN users u            ON u.id        = o.customer_id
-            JOIN order_items oi     ON oi.order_id  = o.id
-            JOIN seat_bookings sb   ON sb.id        = oi.seat_booking_id
-            JOIN train_seats ts     ON ts.id        = sb.seat_id
-            JOIN train_carriages tc ON tc.id        = ts.carriage_id
+            JOIN users u                        ON u.id          = o.customer_id
+            JOIN order_items oi                 ON oi.order_id   = o.id
+            JOIN seat_bookings sb               ON sb.id         = oi.seat_booking_id
+            JOIN seats s                        ON s.id          = sb.seat_id
+            JOIN carriages c                    ON c.id          = s.carriage_id
+            JOIN train_trips tt                 ON tt.id         = sb.trip_id
+            JOIN train_carriage_assignments tca ON tca.train_id    = tt.train_id
+                                               AND tca.carriage_id = s.carriage_id
+                                               AND tca.unassigned_at IS NULL
             WHERE u.email = ? AND o.order_code = ?
             """;
 

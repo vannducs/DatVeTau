@@ -1,33 +1,36 @@
 package com.bookticket.dto;
 
+import lombok.Builder;
 import lombok.Data;
 import java.util.List;
 
 @Data
+@Builder
 public class TripResultDTO {
-    private Integer id;             // trip ID (frontend uses trip.id)
-    private Integer trainId;
-    private String  trainCode;
-    private String  trainName;
-    private String  originName;
-    private String  destinationName;
-    private String  departureTime;   // "HH:mm" at board station
-    private String  arrivalTime;     // "HH:mm" at alight station
-    private String  departureDate;   // "dd/MM/yyyy"
-    private String  duration;        // "10h 30p"
+    private Integer tripId;
+    private String trainCode;
+    private String trainName;
+    private String fromStationName;
+    private String toStationName;
+    private String fromStationCode;
+    private String toStationCode;
+    private String boardTime;   // HH:mm
+    private String alightTime;  // HH:mm
+    private String boardDate;   // dd/MM/yyyy
+    private String alightDate;
+    private String duration;    // "Xh Yp"
     private boolean nextDay;
-    private Integer boardStopOrder;
-    private Integer alightStopOrder;
-    private Integer boardDistanceKm;
-    private Integer alightDistanceKm;
-    private List<CarriagePriceDTO> carriagePrices;
+    private List<CarriageSummaryDTO> carriageSummary;
 
     @Data
-    public static class CarriagePriceDTO {
-        private String  carriageType;
-        private String  carriageTypeLabel;
-        private Long    minPrice;
+    @Builder
+    public static class CarriageSummaryDTO {
+        private Integer carriageOrder;
+        private String carriageType;
+        private Boolean isVip;
+        private String amenities;
         private Integer availableSeats;
         private Integer totalSeats;
+        private Long minPrice;
     }
 }

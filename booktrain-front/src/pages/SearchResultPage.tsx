@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { tripApi } from "../api/trip";
-import { locationApi } from "../api/location";
+import { stationApi } from "../api/station";
 import type { TripResult } from "../types/trip";
 import type { LocationDTO } from "../types/location";
 import Header from "../components/common/Header";
 import TripCard from "../components/search/TripCard";
-import SearchBox from "../components/booking/SearchBox"; // 👈 thêm import
+import SearchBox from "../components/booking/SearchBox";
 import "./searchResult.css";
 import "../components/booking/searchSection.css";
 import HomeFooter from "../components/home/HomeFooter"
@@ -15,8 +15,8 @@ import HomeFooter from "../components/home/HomeFooter"
 export default function SearchResultPage() {
     const [params] = useSearchParams();
 
-    const originId = Number(params.get("originId"));
-    const destinationId = Number(params.get("destinationId"));
+    const fromStationId = Number(params.get("fromStationId"));
+    const toStationId   = Number(params.get("toStationId"));
     const date = params.get("date") || "";
     const adult   = Number(params.get("adult")   || 1);
     const child   = Number(params.get("child")   || 0);
@@ -29,25 +29,31 @@ export default function SearchResultPage() {
     const [origin, setOrigin] = useState<LocationDTO | null>(null);
     const [destination, setDestination] = useState<LocationDTO | null>(null);
     const [sortBy, setSortBy] = useState<"price_asc" | "price_desc" | "depart_asc" | "depart_desc">("price_asc");
-
-    // Bộ lọc giờ đi
     const [filterHour, setFilterHour] = useState<string | null>(null);
 
     useEffect(() => {
-        locationApi.getTrainStations().then(res => {
-            const stations: LocationDTO[] = res.data;
-            setOrigin(stations.find(s => s.id === originId) || null);
-            setDestination(stations.find(s => s.id === destinationId) || null);
+        stationApi.getAll().then(res => {
+            const stations: LocationDTO[] = res.data.map(s => ({
+                id: s.id,
+                name: s.name,
+                locationType: "train_station",
+                provinceName: s.city,
+                provinceId: null,
+                address: null,
+                iataCode: null,
+            }));
+            setOrigin(stations.find(s => s.id === fromStationId) || null);
+            setDestination(stations.find(s => s.id === toStationId) || null);
         });
-    }, [originId, destinationId]);
+    }, [fromStationId, toStationId]);
 
     useEffect(() => {
         setLoading(true);
-        tripApi.search(originId, destinationId, date)
+        tripApi.search(fromStationId, toStationId, date)
             .then(res => setTrips(res.data))
             .catch(() => setTrips([]))
             .finally(() => setLoading(false));
-    }, [originId, destinationId, date]);
+    }, [fromStationId, toStationId, date]);
 
     const formatDate = (d: string) => {
         if (!d) return "";
@@ -57,10 +63,9 @@ export default function SearchResultPage() {
         return `${thu}, ${day}/${m}`;
     };
 
-    // Lọc theo giờ đi
     const filtered = trips.filter(trip => {
         if (!filterHour) return true;
-        const hour = parseInt(trip.departureTime.split(":")[0]);
+        const hour = parseInt(trip.boardTime.split(":")[0]);
         if (filterHour === "sang_som") return hour >= 0 && hour < 6;
         if (filterHour === "buoi_sang") return hour >= 6 && hour < 12;
         if (filterHour === "buoi_chieu") return hour >= 12 && hour < 18;
@@ -68,16 +73,16 @@ export default function SearchResultPage() {
         return true;
     });
 
-    // Sắp xếp
+    const minPrice = (trip: TripResult) =>
+        trip.carriageSummary.length > 0
+            ? Math.min(...trip.carriageSummary.map(c => c.minPrice))
+            : 0;
+
     const sorted = [...filtered].sort((a, b) => {
-        if (sortBy === "price_asc") {
-            return (a.carriagePrices[0]?.minPrice || 0) - (b.carriagePrices[0]?.minPrice || 0);
-        }
-        if (sortBy === "price_desc") {
-            return (b.carriagePrices[0]?.minPrice || 0) - (a.carriagePrices[0]?.minPrice || 0);
-        }
-        if (sortBy === "depart_asc") return a.departureTime.localeCompare(b.departureTime);
-        if (sortBy === "depart_desc") return b.departureTime.localeCompare(a.departureTime);
+        if (sortBy === "price_asc")    return minPrice(a) - minPrice(b);
+        if (sortBy === "price_desc")   return minPrice(b) - minPrice(a);
+        if (sortBy === "depart_asc")   return a.boardTime.localeCompare(b.boardTime);
+        if (sortBy === "depart_desc")  return b.boardTime.localeCompare(a.boardTime);
         return 0;
     });
 
@@ -85,7 +90,6 @@ export default function SearchResultPage() {
         <>
             <Header />
 
-            {/* Search box tái sử dụng */}
             <div className="search-result-searchbox">
                 <SearchBox
                     defaultTab="train"
@@ -94,12 +98,12 @@ export default function SearchResultPage() {
                     initialDate={date}
                 />
             </div>
-            {/* Thông tin tuyến + ngày */}
+
             <div className="search-result-info-bar">
                 <span className="search-route-text">
-                    {origin?.name || `Ga #${originId}`}
+                    {origin?.name || `Ga #${fromStationId}`}
                     <span className="route-arrow"> → </span>
-                    {destination?.name || `Ga #${destinationId}`}
+                    {destination?.name || `Ga #${toStationId}`}
                 </span>
                 <span className="search-date-badge">{formatDate(date)}</span>
             </div>
@@ -107,7 +111,6 @@ export default function SearchResultPage() {
             <div className="search-result-page">
                 <div className="search-result-body">
 
-                    {/* Bộ lọc bên trái */}
                     <aside className="search-filter">
                         <h3 className="filter-title">Bộ lọc</h3>
 
@@ -133,10 +136,8 @@ export default function SearchResultPage() {
                         </div>
                     </aside>
 
-                    {/* Danh sách chuyến bên phải */}
                     <div className="search-result-main">
 
-                        {/* Sort bar */}
                         <div className="sort-bar">
                             <span className="sort-label">Sắp xếp</span>
                             {[
@@ -155,10 +156,8 @@ export default function SearchResultPage() {
                             ))}
                         </div>
 
-                        {/* Kết quả */}
                         {loading ? (
                             <div className="result-status" style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
-                                <span className="material-icons-round" style={{ fontSize: 22, color: "#2F6FED" }}>manage_search</span>
                                 Đang tìm kiếm chuyến tàu...
                             </div>
                         ) : sorted.length === 0 ? (
@@ -173,10 +172,10 @@ export default function SearchResultPage() {
                                 <div className="trip-list">
                                     {sorted.map(trip => (
                                         <TripCard
-                                            key={trip.id}
+                                            key={trip.tripId}
                                             trip={trip}
-                                            originId={originId}
-                                            destinationId={destinationId}
+                                            fromStationId={fromStationId}
+                                            toStationId={toStationId}
                                             adult={adult}
                                             child={child}
                                             elderly={elderly}

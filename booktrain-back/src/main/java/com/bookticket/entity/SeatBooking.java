@@ -18,36 +18,40 @@ public class SeatBooking {
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "seat_id")
-    private TrainSeat seat;
+    @JoinColumn(name = "seat_id", nullable = false)
+    private Seat seat;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "trip_id")
+    @JoinColumn(name = "trip_id", nullable = false)
     private TrainTrip trip;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_item_id")
-    private OrderItem orderItem;
+    @JoinColumn(name = "from_station_id", nullable = false)
+    private TrainStation fromStation;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "board_location_id")
-    private Location boardLocation;
+    @JoinColumn(name = "to_station_id", nullable = false)
+    private TrainStation toStation;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "alight_location_id")
-    private Location alightLocation;
+    @Column(name = "from_order_index", nullable = false)
+    private Integer fromOrderIndex;
 
-    @Column(name = "board_stop_order")
-    private Integer boardStopOrder;
+    @Column(name = "to_order_index", nullable = false)
+    private Integer toOrderIndex;
 
-    @Column(name = "alight_stop_order")
-    private Integer alightStopOrder;
-
-    @Column(name = "ticket_price", precision = 15, scale = 2)
+    @Column(name = "ticket_price", nullable = false, precision = 15, scale = 2)
     private BigDecimal ticketPrice;
 
-    private String status; // confirmed | cancelled
+    // confirmed | cancelled
+    @Column(nullable = false, length = 20)
+    private String status;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (status == null) status = "confirmed";
+        createdAt = OffsetDateTime.now();
+    }
 }

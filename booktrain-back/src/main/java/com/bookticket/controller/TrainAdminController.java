@@ -1,473 +1,451 @@
 package com.bookticket.controller;
 
-import com.bookticket.entity.TrainTrip;
-import com.bookticket.repository.TrainTripRepository;
+import com.bookticket.entity.*;
+import com.bookticket.repository.*;
+import com.bookticket.service.TripService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.sql.PreparedStatement;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 public class TrainAdminController {
 
-    private final JdbcTemplate jdbc;
-    private final TrainTripRepository tripRepository;
-
-    // ─── Helpers ────────────────────────────────────────────────────────────────
-
-    private Integer adminId(UserDetails u) {
-        return jdbc.queryForObject("SELECT id FROM users WHERE email = ?", Integer.class, u.getUsername());
-    }
-
-    private void logAction(Integer adminId, String action, String targetType, Integer targetId, String detail) {
-        jdbc.update(
-            "INSERT INTO admin_logs (admin_id, action, target_type, target_id, detail, created_at) VALUES (?,?,?,?,?,NOW())",
-            adminId, action, targetType, targetId, detail);
-    }
+    private final TrainRepository                  trainRepo;
+    private final TrainCarriageAssignmentRepository assignmentRepo;
+    private final SeatRepository                   seatRepo;
+    private final CarriageRepository               carriageRepo;
+    private final TrainTripRepository              tripRepo;
+    private final TrainStationRepository           stationRepo;
+    private final AdminLogRepository               adminLogRepo;
+    private final UserRepository                   userRepo;
+    private final TripService                      tripService;
 
     private boolean hasActiveTrip(Integer trainId) {
-        return tripRepository.existsByTrainIdAndStatusAndArrivalTimeAfter(trainId, "open", OffsetDateTime.now());
+        return tripRepo.existsByTrainIdAndStatusAndArrivalDatetimeAfter(trainId, "open", OffsetDateTime.now());
     }
 
-    private static final String LOCKED_MSG =
-        "Không thể chỉnh sửa tàu đang có kế hoạch khởi hành. " +
-        "Hãy đợi tất cả kế hoạch kết thúc hoặc hủy kế hoạch trước.";
+    private Integer getAdminId(UserDetails u) {
+        return userRepo.findByEmail(u.getUsername()).map(User::getId).orElse(null);
+    }
 
-    // ─── TRAINS ─────────────────────────────────────────────────────────────────
+    // ─── TRAIN CRUD ───────────────────────────────────────────────────────────────
 
-    /** GET /api/admin/trains */
     @GetMapping("/trains")
     public ResponseEntity<List<Map<String, Object>>> listTrains() {
-        List<Map<String, Object>> trains = jdbc.queryForList("""
-                SELECT t.id, t.train_code, t.train_name, t.train_type,
-                       COUNT(DISTINCT tc.id) AS carriage_count,
-                       EXISTS(
-                           SELECT 1 FROM train_trips tt
-                           WHERE tt.train_id = t.id AND tt.status = 'open'
-                             AND tt.arrival_time > NOW()
-                       ) AS has_active_trip
-                FROM trains t
-                LEFT JOIN train_carriages tc ON tc.train_id = t.id
-                GROUP BY t.id
-                ORDER BY t.train_code
-                """);
-        return ResponseEntity.ok(trains);
-    }
-
-    /** GET /api/admin/trains/{trainId} */
-    @GetMapping("/trains/{trainId}")
-    public ResponseEntity<Map<String, Object>> trainDetail(@PathVariable Integer trainId) {
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT id, train_code, train_name, train_type FROM trains WHERE id = ?", trainId);
-        if (rows.isEmpty()) return ResponseEntity.notFound().build();
-
-        Map<String, Object> train = new HashMap<>(rows.get(0));
-
-        List<Map<String, Object>> carriages = jdbc.queryForList("""
-                SELECT id, carriage_number, carriage_type, is_vip, amenities, seats_per_compartment
-                FROM train_carriages
-                WHERE train_id = ?
-                ORDER BY carriage_number
-                """, trainId);
-
-        for (Map<String, Object> carriage : carriages) {
-            List<Map<String, Object>> seats = jdbc.queryForList("""
-                    SELECT id, seat_number, berth_position
-                    FROM train_seats
-                    WHERE carriage_id = ?
-                    ORDER BY seat_number
-                    """, carriage.get("id"));
-            ((Map<String, Object>) carriage).put("seats", seats);
-        }
-
-        train.put("carriages", carriages);
-        return ResponseEntity.ok(train);
-    }
-
-    record TrainRequest(String trainCode, String trainName, String trainType) {}
-
-    /** POST /api/admin/trains */
-    @PostMapping("/trains")
-    public ResponseEntity<Map<String, Object>> createTrain(@RequestBody TrainRequest req,
-                                                            @AuthenticationPrincipal UserDetails userDetails) {
-        if (req.trainCode() == null || req.trainCode().isBlank())
-            return ResponseEntity.badRequest().body(Map.of("message", "Mã tàu không được trống"));
-
-        try {
-            KeyHolder keyHolder = new GeneratedKeyHolder();
-            jdbc.update(conn -> {
-                PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO trains (train_code, train_name, train_type) VALUES (?, ?, ?)",
-                        new String[] {"id"});
-                ps.setString(1, req.trainCode());
-                ps.setString(2, req.trainName());
-                ps.setString(3, req.trainType() != null ? req.trainType() : "express");
-                return ps;
-            }, keyHolder);
-
-            Integer newId = Objects.requireNonNull(keyHolder.getKey()).intValue();
-            try {
-                logAction(adminId(userDetails), "CREATE_TRAIN", "train", newId, "Tạo tàu " + req.trainCode());
-            } catch (DataAccessException ignored) {}
-            return ResponseEntity.ok(Map.of("success", true, "id", newId, "message", "Tạo tàu thành công"));
-        } catch (DuplicateKeyException e) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Mã tàu '" + req.trainCode() + "' đã tồn tại"));
-        } catch (DataAccessException e) {
-            return ResponseEntity.internalServerError().body(Map.of("message", "Lỗi cơ sở dữ liệu: " + e.getMostSpecificCause().getMessage()));
-        }
-    }
-
-    record TrainUpdateRequest(String trainName) {}
-
-    /** PUT /api/admin/trains/{trainId} */
-    @PutMapping("/trains/{trainId}")
-    public ResponseEntity<Map<String, Object>> updateTrain(@PathVariable Integer trainId,
-                                                            @RequestBody TrainUpdateRequest req,
-                                                            @AuthenticationPrincipal UserDetails userDetails) {
-        if (hasActiveTrip(trainId))
-            return ResponseEntity.badRequest().body(Map.of("message", LOCKED_MSG));
-
-        jdbc.update("UPDATE trains SET train_name = ? WHERE id = ?", req.trainName(), trainId);
-        logAction(adminId(userDetails), "UPDATE_TRAIN", "train", trainId, "Cập nhật tên tàu");
-        return ResponseEntity.ok(Map.of("success", true, "message", "Cập nhật thành công"));
-    }
-
-    /** DELETE /api/admin/trains/{trainId} */
-    @DeleteMapping("/trains/{trainId}")
-    public ResponseEntity<Map<String, Object>> deleteTrain(@PathVariable Integer trainId,
-                                                            @AuthenticationPrincipal UserDetails userDetails) {
-        boolean hasTrips = Boolean.TRUE.equals(jdbc.queryForObject(
-                "SELECT EXISTS(SELECT 1 FROM train_trips WHERE train_id = ?)",
-                Boolean.class, trainId));
-        if (hasTrips)
-            return ResponseEntity.badRequest().body(Map.of("message", "Tàu đã có lịch sử chuyến, không thể xóa"));
-
-        jdbc.update("DELETE FROM train_seats WHERE carriage_id IN (SELECT id FROM train_carriages WHERE train_id = ?)", trainId);
-        jdbc.update("DELETE FROM train_carriages WHERE train_id = ?", trainId);
-        jdbc.update("DELETE FROM trains WHERE id = ?", trainId);
-        logAction(adminId(userDetails), "DELETE_TRAIN", "train", trainId, "Xóa tàu ID=" + trainId);
-        return ResponseEntity.ok(Map.of("success", true, "message", "Xóa tàu thành công"));
-    }
-
-    // ─── TRIP STATUS ─────────────────────────────────────────────────────────────
-
-    /** GET /api/admin/trains/{trainId}/trip-status */
-    @GetMapping("/trains/{trainId}/trip-status")
-    public ResponseEntity<Map<String, Object>> tripStatus(@PathVariable Integer trainId) {
-        boolean active = hasActiveTrip(trainId);
-
-        Optional<TrainTrip> latest = tripRepository.findTopByTrainIdOrderByDepartureDateDesc(trainId);
-
-        LocalDate today = LocalDate.now();
-        LocalDate latestAllowedDate = today.plusDays(14);
-        LocalDate latestDepartureDate = latest.map(TrainTrip::getDepartureDate).orElse(null);
-
-        LocalDate earliestNewTripDate;
-        if (latestDepartureDate != null) {
-            LocalDate minFromLatest = latestDepartureDate.plusDays(2);
-            earliestNewTripDate = minFromLatest.isBefore(today) ? today : minFromLatest;
-        } else {
-            earliestNewTripDate = today;
-        }
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("hasActiveTrip", active);
-        result.put("latestDepartureDate", latestDepartureDate != null ? latestDepartureDate.toString() : null);
-        result.put("earliestNewTripDate", earliestNewTripDate.toString());
-        result.put("latestAllowedDate", latestAllowedDate.toString());
+        List<Train> trains = trainRepo.findAll();
+        List<Map<String, Object>> result = trains.stream().map(t -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id",           t.getId());
+            m.put("train_code",   t.getTrainCode());
+            m.put("train_name",   t.getTrainName());
+            m.put("train_type",   "express");
+            m.put("status",       t.getStatus());
+            m.put("carriage_count", assignmentRepo.countByTrainIdAndUnassignedAtIsNull(t.getId()));
+            m.put("has_active_trip", hasActiveTrip(t.getId()));
+            return m;
+        }).collect(Collectors.toList());
         return ResponseEntity.ok(result);
     }
 
-    // ─── CARRIAGES ───────────────────────────────────────────────────────────────
+    @GetMapping("/trains/{trainId}")
+    public ResponseEntity<?> trainDetail(@PathVariable Integer trainId) {
+        Train train = trainRepo.findById(trainId).orElse(null);
+        if (train == null) return ResponseEntity.notFound().build();
 
-    record CarriageRequest(Integer carriageNumber, String carriageType,
-                           Boolean isVip, String amenities, Integer seatsPerCompartment) {}
+        List<TrainCarriageAssignment> assignments =
+                assignmentRepo.findByTrainIdAndUnassignedAtIsNull(trainId);
 
-    /** POST /api/admin/trains/{trainId}/carriages */
-    @PostMapping("/trains/{trainId}/carriages")
-    public ResponseEntity<Map<String, Object>> addCarriage(@PathVariable Integer trainId,
-                                                            @RequestBody CarriageRequest req,
-                                                            @AuthenticationPrincipal UserDetails userDetails) {
-        if (hasActiveTrip(trainId))
-            return ResponseEntity.badRequest().body(Map.of("message", LOCKED_MSG));
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id",         train.getId());
+        result.put("train_code", train.getTrainCode());
+        result.put("train_name", train.getTrainName());
+        result.put("train_type", "express");
+        result.put("status",     train.getStatus());
 
-        Long count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM train_carriages WHERE train_id = ?", Long.class, trainId);
-        if (count != null && count >= 8)
-            return ResponseEntity.badRequest().body(Map.of("message", "Tàu đã có tối đa 8 toa"));
+        List<Map<String, Object>> carriages = assignments.stream().map(a -> {
+            Carriage c = a.getCarriage();
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id",                    c.getId());
+            m.put("carriage_number",       a.getCarriageOrder());
+            m.put("carriage_type",         c.getCarriageType());
+            m.put("is_vip",                c.getIsVip());
+            m.put("amenities",             c.getAmenities());
+            m.put("seats_per_compartment", c.getCarriageType().startsWith("sleeper") ? 3 : null);
+            m.put("assignment_id",         a.getId());
 
-        int nextNum = req.carriageNumber() != null ? req.carriageNumber() : (count != null ? count.intValue() + 1 : 1);
+            List<Map<String, Object>> seats = seatRepo.findByCarriageIdOrderBySeatNumberAsc(c.getId())
+                    .stream().map(s -> {
+                        Map<String, Object> sm = new LinkedHashMap<>();
+                        sm.put("id",             s.getId());
+                        sm.put("seat_number",    s.getSeatNumber());
+                        sm.put("berth_position", s.getBerthPosition());
+                        return sm;
+                    }).toList();
+            m.put("seats", seats);
+            return m;
+        }).collect(Collectors.toList());
 
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbc.update(conn -> {
-            PreparedStatement ps = conn.prepareStatement("""
-                    INSERT INTO train_carriages (train_id, carriage_number, carriage_type, is_vip, amenities, seats_per_compartment)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """, new String[] {"id"});
-            ps.setInt(1, trainId);
-            ps.setInt(2, nextNum);
-            ps.setString(3, req.carriageType() != null ? req.carriageType() : "seat");
-            ps.setBoolean(4, Boolean.TRUE.equals(req.isVip()));
-            ps.setString(5, req.amenities());
-            ps.setObject(6, req.seatsPerCompartment());
-            return ps;
-        }, keyHolder);
-
-        Integer newId = Objects.requireNonNull(keyHolder.getKey()).intValue();
-        logAction(adminId(userDetails), "ADD_CARRIAGE", "carriage", newId,
-                "Thêm toa " + nextNum + " vào tàu " + trainId);
-        return ResponseEntity.ok(Map.of("success", true, "id", newId, "carriageNumber", nextNum));
+        result.put("carriages", carriages);
+        return ResponseEntity.ok(result);
     }
 
-    /** PUT /api/admin/carriages/{carriageId} */
-    @PutMapping("/carriages/{carriageId}")
-    public ResponseEntity<Map<String, Object>> updateCarriage(@PathVariable Integer carriageId,
-                                                               @RequestBody CarriageRequest req,
-                                                               @AuthenticationPrincipal UserDetails userDetails) {
-        List<Map<String, Object>> current = jdbc.queryForList(
-                "SELECT carriage_type, train_id FROM train_carriages WHERE id = ?", carriageId);
-        if (current.isEmpty()) return ResponseEntity.notFound().build();
+    @PostMapping("/trains")
+    public ResponseEntity<?> createTrain(
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
-        Integer trainId = ((Number) current.get(0).get("train_id")).intValue();
+        String trainCode = (String) body.get("trainCode");
+        String trainName = (String) body.get("trainName");
+
+        if (trainCode == null || trainCode.isBlank())
+            return ResponseEntity.badRequest().body(Map.of("message", "Mã tàu không được trống"));
+        if (trainRepo.existsByTrainCode(trainCode))
+            return ResponseEntity.badRequest().body(Map.of("message", "Mã tàu '" + trainCode + "' đã tồn tại"));
+
+        Train train = Train.builder()
+                .trainCode(trainCode.toUpperCase())
+                .trainName(trainName)
+                .status("active")
+                .build();
+        train = trainRepo.save(train);
+
+        try {
+            adminLogRepo.save(AdminLog.builder()
+                    .adminId(getAdminId(userDetails))
+                    .action("CREATE_TRAIN").targetType("train").targetId(train.getId())
+                    .detail("Tạo tàu " + trainCode).build());
+        } catch (Exception ignored) {}
+
+        return ResponseEntity.ok(Map.of("success", true, "id", train.getId(), "message", "Tạo tàu thành công"));
+    }
+
+    @PutMapping("/trains/{trainId}")
+    public ResponseEntity<?> updateTrain(
+            @PathVariable Integer trainId,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        Train train = trainRepo.findById(trainId).orElse(null);
+        if (train == null) return ResponseEntity.notFound().build();
         if (hasActiveTrip(trainId))
-            return ResponseEntity.badRequest().body(Map.of("message", LOCKED_MSG));
+            return ResponseEntity.badRequest().body(Map.of("message", "Tàu đang có chuyến hoạt động"));
 
-        String currentType = (String) current.get(0).get("carriage_type");
-        String newType = req.carriageType() != null ? req.carriageType() : currentType;
+        if (body.containsKey("trainName")) train.setTrainName((String) body.get("trainName"));
+        if (body.containsKey("status"))    train.setStatus((String) body.get("status"));
+        trainRepo.save(train);
 
-        if (!newType.equals(currentType)) {
-            jdbc.update("DELETE FROM train_seats WHERE carriage_id = ?", carriageId);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Cập nhật thành công"));
+    }
+
+    @DeleteMapping("/trains/{trainId}")
+    @Transactional
+    public ResponseEntity<?> deleteTrain(
+            @PathVariable Integer trainId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        Train train = trainRepo.findById(trainId).orElse(null);
+        if (train == null) return ResponseEntity.notFound().build();
+
+        boolean hasTrips = !tripRepo.findByTrainIdAndStatus(trainId, "open").isEmpty()
+                        || !tripRepo.findByTrainIdAndStatus(trainId, "completed").isEmpty();
+        if (hasTrips)
+            return ResponseEntity.badRequest().body(Map.of("message", "Tàu đã có lịch sử chuyến, không thể xóa"));
+
+        // Tháo tất cả toa
+        List<TrainCarriageAssignment> assignments = assignmentRepo.findByTrainIdAndUnassignedAtIsNull(trainId);
+        for (TrainCarriageAssignment a : assignments) {
+            a.setUnassignedAt(OffsetDateTime.now());
+            assignmentRepo.save(a);
+            Carriage c = a.getCarriage();
+            c.setStatus("available");
+            carriageRepo.save(c);
+        }
+        trainRepo.delete(train);
+
+        return ResponseEntity.ok(Map.of("success", true, "message", "Xóa tàu thành công"));
+    }
+
+    // ─── CARRIAGE MANAGEMENT (delegated to assignments) ──────────────────────────
+
+    @GetMapping("/trains/{trainId}/carriages")
+    public ResponseEntity<List<Map<String, Object>>> trainCarriages(@PathVariable Integer trainId) {
+        List<TrainCarriageAssignment> assignments = assignmentRepo.findByTrainIdAndUnassignedAtIsNull(trainId);
+        List<Map<String, Object>> result = assignments.stream().map(a -> {
+            Carriage c = a.getCarriage();
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id",                    c.getId());
+            m.put("carriage_number",       a.getCarriageOrder());
+            m.put("carriage_type",         c.getCarriageType());
+            m.put("is_vip",                c.getIsVip());
+            m.put("amenities",             c.getAmenities());
+            m.put("seat_count",            seatRepo.countByCarriageId(c.getId()));
+            m.put("seats_per_compartment", c.getCarriageType().startsWith("sleeper") ? 3 : null);
+            return m;
+        }).collect(Collectors.toList());
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/trains/{trainId}/carriages")
+    @Transactional
+    public ResponseEntity<?> addCarriage(
+            @PathVariable Integer trainId,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        if (hasActiveTrip(trainId))
+            return ResponseEntity.badRequest().body(Map.of("message", "Tàu đang có chuyến hoạt động"));
+
+        int count = assignmentRepo.countByTrainIdAndUnassignedAtIsNull(trainId);
+        if (count >= 8)
+            return ResponseEntity.badRequest().body(Map.of("message", "Tàu đã có tối đa 8 toa"));
+
+        // Tạo carriage mới và gắn vào tàu
+        String carriageType = (String) body.getOrDefault("carriageType", "seat");
+        Boolean isVip       = Boolean.TRUE.equals(body.get("isVip"));
+        String amenities    = (String) body.getOrDefault("amenities", "");
+
+        Train train = trainRepo.findById(trainId).orElseThrow();
+
+        long codeSeq = carriageRepo.count() + 1;
+        String code  = "C" + String.format("%03d", codeSeq);
+        while (carriageRepo.existsByCarriageCode(code)) {
+            codeSeq++;
+            code = "C" + String.format("%03d", codeSeq);
         }
 
-        jdbc.update("""
-                UPDATE train_carriages
-                SET carriage_type = ?, is_vip = ?, amenities = ?, seats_per_compartment = ?
-                WHERE id = ?
-                """, newType, Boolean.TRUE.equals(req.isVip()),
-                req.amenities(), req.seatsPerCompartment(), carriageId);
+        Carriage carriage = Carriage.builder()
+                .carriageCode(code)
+                .carriageType(carriageType)
+                .isVip(isVip)
+                .amenities(amenities)
+                .status("in_use")
+                .build();
+        carriage = carriageRepo.save(carriage);
+        generateSeats(carriage);
 
-        logAction(adminId(userDetails), "UPDATE_CARRIAGE", "carriage", carriageId, "Cập nhật toa");
+        TrainCarriageAssignment assignment = TrainCarriageAssignment.builder()
+                .train(train)
+                .carriage(carriage)
+                .carriageOrder(count + 1)
+                .build();
+        assignmentRepo.save(assignment);
+
+        try {
+            adminLogRepo.save(AdminLog.builder()
+                    .adminId(getAdminId(userDetails))
+                    .action("ADD_CARRIAGE").targetType("carriage").targetId(carriage.getId())
+                    .detail("Thêm toa " + code + " vào tàu " + train.getTrainCode()).build());
+        } catch (Exception ignored) {}
+
+        return ResponseEntity.ok(Map.of("success", true, "id", carriage.getId(), "carriageNumber", count + 1));
+    }
+
+    @PutMapping("/carriages/{carriageId}")
+    @Transactional
+    public ResponseEntity<?> updateCarriage(
+            @PathVariable Integer carriageId,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        Carriage carriage = carriageRepo.findById(carriageId).orElse(null);
+        if (carriage == null) return ResponseEntity.notFound().build();
+
+        // Kiểm tra tàu có đang chạy không
+        assignmentRepo.findByCarriageIdAndUnassignedAtIsNull(carriageId).ifPresent(a -> {
+            // We'll check below
+        });
+
+        String newType = body.containsKey("carriageType") ? (String) body.get("carriageType") : carriage.getCarriageType();
+
+        if (!newType.equals(carriage.getCarriageType())) {
+            // Xóa ghế cũ, sinh ghế mới
+            seatRepo.deleteByCarriageId(carriageId);
+            carriage.setCarriageType(newType);
+            carriageRepo.save(carriage);
+            generateSeats(carriage);
+        }
+
+        if (body.containsKey("isVip"))    carriage.setIsVip(Boolean.TRUE.equals(body.get("isVip")));
+        if (body.containsKey("amenities")) carriage.setAmenities((String) body.get("amenities"));
+        carriageRepo.save(carriage);
+
         return ResponseEntity.ok(Map.of("success", true, "message", "Cập nhật toa thành công"));
     }
 
-    /** DELETE /api/admin/carriages/{carriageId} */
     @DeleteMapping("/carriages/{carriageId}")
-    public ResponseEntity<Map<String, Object>> deleteCarriage(@PathVariable Integer carriageId,
-                                                               @AuthenticationPrincipal UserDetails userDetails) {
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT train_id FROM train_carriages WHERE id = ?", carriageId);
-        if (rows.isEmpty()) return ResponseEntity.notFound().build();
+    @Transactional
+    public ResponseEntity<?> deleteCarriage(
+            @PathVariable Integer carriageId,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
-        Integer trainId = ((Number) rows.get(0).get("train_id")).intValue();
-        if (hasActiveTrip(trainId))
-            return ResponseEntity.badRequest().body(Map.of("message", LOCKED_MSG));
+        Carriage carriage = carriageRepo.findById(carriageId).orElse(null);
+        if (carriage == null) return ResponseEntity.notFound().build();
 
-        jdbc.update("DELETE FROM train_seats WHERE carriage_id = ?", carriageId);
-        jdbc.update("DELETE FROM train_carriages WHERE id = ?", carriageId);
+        Optional<TrainCarriageAssignment> activeAssignment =
+                assignmentRepo.findByCarriageIdAndUnassignedAtIsNull(carriageId);
 
-        logAction(adminId(userDetails), "DELETE_CARRIAGE", "carriage", carriageId, "Xóa toa ID=" + carriageId);
+        if (activeAssignment.isPresent()) {
+            Integer trainId = activeAssignment.get().getTrain().getId();
+            if (hasActiveTrip(trainId))
+                return ResponseEntity.badRequest().body(Map.of("message", "Tàu đang có chuyến hoạt động"));
+
+            TrainCarriageAssignment a = activeAssignment.get();
+            a.setUnassignedAt(OffsetDateTime.now());
+            assignmentRepo.save(a);
+        }
+
+        seatRepo.deleteByCarriageId(carriageId);
+        carriageRepo.delete(carriage);
+
         return ResponseEntity.ok(Map.of("success", true, "message", "Xóa toa thành công"));
     }
 
-    // ─── SEATS ───────────────────────────────────────────────────────────────────
+    @DeleteMapping("/seats/{seatId}")
+    public ResponseEntity<?> deleteSeat(
+            @PathVariable Integer seatId,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
-    record SeatRequest(String seatNumber, String berthPosition) {}
-
-    /** POST /api/admin/carriages/{carriageId}/seats */
-    @PostMapping("/carriages/{carriageId}/seats")
-    public ResponseEntity<Map<String, Object>> addSeat(@PathVariable Integer carriageId,
-                                                        @RequestBody SeatRequest req,
-                                                        @AuthenticationPrincipal UserDetails userDetails) {
-        List<Map<String, Object>> typeRows = jdbc.queryForList(
-                "SELECT carriage_type, train_id FROM train_carriages WHERE id = ?", carriageId);
-        if (typeRows.isEmpty()) return ResponseEntity.notFound().build();
-
-        Integer trainId = ((Number) typeRows.get(0).get("train_id")).intValue();
-        if (hasActiveTrip(trainId))
-            return ResponseEntity.badRequest().body(Map.of("message", LOCKED_MSG));
-
-        String carriageType = (String) typeRows.get(0).get("carriage_type");
-        Long count = jdbc.queryForObject("SELECT COUNT(*) FROM train_seats WHERE carriage_id = ?", Long.class, carriageId);
-        long cnt = count != null ? count : 0L;
-
-        if ("seat".equals(carriageType) && cnt >= 32)
-            return ResponseEntity.badRequest().body(Map.of("message", "Toa ghế ngồi tối đa 32 ghế"));
-        if ("sleeper".equals(carriageType) && cnt >= 18)
-            return ResponseEntity.badRequest().body(Map.of("message", "Toa ghế nằm đã đầy (tối đa 18 ghế)"));
-
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbc.update(conn -> {
-            PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO train_seats (carriage_id, seat_number, berth_position) VALUES (?, ?, ?)",
-                    new String[] {"id"});
-            ps.setInt(1, carriageId);
-            ps.setString(2, req.seatNumber());
-            ps.setString(3, req.berthPosition());
-            return ps;
-        }, keyHolder);
-
-        Integer newId = Objects.requireNonNull(keyHolder.getKey()).intValue();
-        logAction(adminId(userDetails), "ADD_SEAT", "seat", newId, "Thêm ghế vào toa " + carriageId);
-        return ResponseEntity.ok(Map.of("success", true, "id", newId));
+        Seat seat = seatRepo.findById(seatId).orElse(null);
+        if (seat == null) return ResponseEntity.notFound().build();
+        seatRepo.delete(seat);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Xóa ghế thành công"));
     }
 
-    /** DELETE /api/admin/seats/{seatId} */
-    @DeleteMapping("/seats/{seatId}")
-    public ResponseEntity<Map<String, Object>> deleteSeat(@PathVariable Integer seatId,
-                                                           @AuthenticationPrincipal UserDetails userDetails) {
-        List<Map<String, Object>> seatRows = jdbc.queryForList("""
-                SELECT tc.train_id FROM train_seats ts
-                JOIN train_carriages tc ON tc.id = ts.carriage_id
-                WHERE ts.id = ?
-                """, seatId);
-        if (seatRows.isEmpty()) return ResponseEntity.notFound().build();
+    @PostMapping("/carriages/{carriageId}/seats")
+    public ResponseEntity<?> addSeat(
+            @PathVariable Integer carriageId,
+            @RequestBody Map<String, Object> body) {
 
-        Integer trainId = ((Number) seatRows.get(0).get("train_id")).intValue();
-        if (hasActiveTrip(trainId))
-            return ResponseEntity.badRequest().body(Map.of("message", LOCKED_MSG));
+        Carriage carriage = carriageRepo.findById(carriageId).orElse(null);
+        if (carriage == null) return ResponseEntity.notFound().build();
 
-        int rows = jdbc.update("DELETE FROM train_seats WHERE id = ?", seatId);
-        if (rows == 0) return ResponseEntity.notFound().build();
+        String seatNumber    = (String) body.get("seatNumber");
+        String berthPosition = (String) body.getOrDefault("berthPosition", "seat");
 
-        logAction(adminId(userDetails), "DELETE_SEAT", "seat", seatId, "Xóa ghế ID=" + seatId);
-        return ResponseEntity.ok(Map.of("success", true, "message", "Xóa ghế thành công"));
+        Seat seat = Seat.builder()
+                .carriage(carriage)
+                .seatNumber(seatNumber)
+                .berthPosition(berthPosition)
+                .build();
+        seat = seatRepo.save(seat);
+        return ResponseEntity.ok(Map.of("success", true, "id", seat.getId()));
     }
 
     // ─── VALIDATE ────────────────────────────────────────────────────────────────
 
-    /** GET /api/admin/trains/{trainId}/validate */
     @GetMapping("/trains/{trainId}/validate")
-    public ResponseEntity<Map<String, Object>> validateTrain(@PathVariable Integer trainId) {
+    public ResponseEntity<?> validateTrain(@PathVariable Integer trainId) {
         List<String> errors = new ArrayList<>();
+        List<TrainCarriageAssignment> assignments = assignmentRepo.findByTrainIdAndUnassignedAtIsNull(trainId);
 
-        List<Map<String, Object>> carriages = jdbc.queryForList("""
-                SELECT tc.id, tc.carriage_number, tc.carriage_type,
-                       COUNT(ts.id) AS seat_count
-                FROM train_carriages tc
-                LEFT JOIN train_seats ts ON ts.carriage_id = tc.id
-                WHERE tc.train_id = ?
-                GROUP BY tc.id, tc.carriage_number, tc.carriage_type
-                ORDER BY tc.carriage_number
-                """, trainId);
+        if (assignments.isEmpty()) errors.add("Tàu phải có ít nhất 1 toa đang gắn");
 
-        if (carriages.isEmpty()) {
-            errors.add("Tàu phải có ít nhất 1 toa");
-        }
+        for (TrainCarriageAssignment a : assignments) {
+            Carriage c = a.getCarriage();
+            int seats  = seatRepo.countByCarriageId(c.getId());
+            int num    = a.getCarriageOrder();
 
-        for (Map<String, Object> c : carriages) {
-            int num = ((Number) c.get("carriage_number")).intValue();
-            String type = (String) c.get("carriage_type");
-            long seats = ((Number) c.get("seat_count")).longValue();
-
-            if ("seat".equals(type)) {
-                if (seats < 1) errors.add("Toa " + num + " (ghế ngồi) phải có ít nhất 1 ghế");
+            if ("seat".equals(c.getCarriageType())) {
+                if (seats < 1)  errors.add("Toa " + num + " (ghế ngồi) cần ít nhất 1 ghế");
                 if (seats > 32) errors.add("Toa " + num + " (ghế ngồi) tối đa 32 ghế");
-            } else if ("sleeper".equals(type)) {
-                if (seats < 2) errors.add("Toa " + num + " (ghế nằm) phải có ít nhất 1 khoang (2 ghế)");
-                if (seats > 18) errors.add("Toa " + num + " (ghế nằm) tối đa 6 khoang (18 ghế)");
+            } else {
+                if (seats < 2)  errors.add("Toa " + num + " (nằm) cần ít nhất 1 khoang");
+                if (seats > 18) errors.add("Toa " + num + " (nằm) tối đa 6 khoang");
             }
         }
 
         return ResponseEntity.ok(Map.of("valid", errors.isEmpty(), "errors", errors));
     }
 
-    // ─── TRAIN ROUTE HELPERS ─────────────────────────────────────────────────────
+    // ─── TRIP STATUS ─────────────────────────────────────────────────────────────
 
-    /** GET /api/admin/trains/{trainId}/available-stations */
-    @GetMapping("/trains/{trainId}/available-stations")
-    public ResponseEntity<List<Map<String, Object>>> availableStations(@PathVariable Integer trainId) {
-        List<Map<String, Object>> stations = jdbc.queryForList("""
-                SELECT tr.id AS route_id, tr.stop_order, tr.day_offset,
-                       l.id AS location_id, l.name AS location_name
-                FROM train_routes tr
-                JOIN locations l ON l.id = tr.location_id
-                WHERE tr.train_id = ?
-                ORDER BY tr.stop_order
-                """, trainId);
-        return ResponseEntity.ok(stations);
+    @GetMapping("/trains/{trainId}/trip-status")
+    public ResponseEntity<?> tripStatus(@PathVariable Integer trainId) {
+        boolean active = hasActiveTrip(trainId);
+        Optional<TrainTrip> latest = tripRepo.findTopByTrainIdOrderByDepartureDatetimeDesc(trainId);
+
+        OffsetDateTime now      = OffsetDateTime.now();
+        OffsetDateTime earliest = now.plusDays(1);
+        OffsetDateTime latest14 = now.plusDays(14);
+
+        if (latest.isPresent()) {
+            OffsetDateTime lastArr = latest.get().getArrivalDatetime();
+            if (lastArr != null && lastArr.isAfter(earliest)) earliest = lastArr.plusDays(1);
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "hasActiveTrip",       active,
+                "earliestNewTripDate", earliest.toLocalDate().toString(),
+                "latestAllowedDate",   latest14.toLocalDate().toString()));
     }
 
-    /** GET /api/admin/trains/{trainId}/schedule-duration?originId=X&destinationId=Y */
+    // ─── AVAILABLE STATIONS (cho trip wizard) ────────────────────────────────────
+
+    @GetMapping("/trains/{trainId}/available-stations")
+    public ResponseEntity<?> availableStations(@PathVariable Integer trainId) {
+        List<TrainStation> stations = stationRepo.findAllByOrderByOrderIndexAsc();
+        List<Map<String, Object>> result = stations.stream().map(s -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("location_id",   s.getId());
+            m.put("location_name", s.getName());
+            m.put("stop_order",    s.getOrderIndex());
+            return m;
+        }).collect(Collectors.toList());
+        return ResponseEntity.ok(result);
+    }
+
+    // ─── SCHEDULE DURATION ────────────────────────────────────────────────────────
+
     @GetMapping("/trains/{trainId}/schedule-duration")
-    public ResponseEntity<Map<String, Object>> scheduleDuration(
+    public ResponseEntity<?> scheduleDuration(
             @PathVariable Integer trainId,
             @RequestParam Integer originId,
             @RequestParam Integer destinationId) {
-
-        // 1) Exact match in train_schedule_times
-        List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT duration_minutes FROM train_schedule_times
-                WHERE train_id = ? AND origin_id = ? AND destination_id = ?
-                """, trainId, originId, destinationId);
-
-        if (!rows.isEmpty()) {
-            return ResponseEntity.ok(Map.of(
-                    "durationMinutes", rows.get(0).get("duration_minutes"),
-                    "found", true));
-        }
-
-        // 2) Fallback: calculate from train_routes using departure_time/arrival_time + day_offset
         try {
-            List<Map<String, Object>> originRoute = jdbc.queryForList("""
-                    SELECT departure_time, day_offset FROM train_routes
-                    WHERE train_id = ? AND location_id = ?
-                    """, trainId, originId);
-            List<Map<String, Object>> destRoute = jdbc.queryForList("""
-                    SELECT arrival_time, day_offset FROM train_routes
-                    WHERE train_id = ? AND location_id = ?
-                    """, trainId, destinationId);
-
-            if (!originRoute.isEmpty() && !destRoute.isEmpty()) {
-                Object depTimeObj = originRoute.get(0).get("departure_time");
-                Object arrTimeObj = destRoute.get(0).get("arrival_time");
-                int depOffset = ((Number) originRoute.get(0).get("day_offset")).intValue();
-                int arrOffset = ((Number) destRoute.get(0).get("day_offset")).intValue();
-
-                if (depTimeObj != null && arrTimeObj != null) {
-                    java.time.LocalTime depTime = ((java.sql.Time) depTimeObj).toLocalTime();
-                    java.time.LocalTime arrTime = ((java.sql.Time) arrTimeObj).toLocalTime();
-
-                    long depMinutes = depOffset * 24 * 60L + depTime.getHour() * 60L + depTime.getMinute();
-                    long arrMinutes = arrOffset * 24 * 60L + arrTime.getHour() * 60L + arrTime.getMinute();
-                    long duration = arrMinutes - depMinutes;
-
-                    if (duration > 0) {
-                        return ResponseEntity.ok(Map.of(
-                                "durationMinutes", duration,
-                                "found", true));
-                    }
-                }
-            }
-        } catch (Exception ignored) {}
-
-        return ResponseEntity.ok(Map.of("durationMinutes", (Object) null, "found", false));
+            int duration = tripService.calcTotalDurationMinutes(originId, destinationId);
+            return ResponseEntity.ok(Map.of("durationMinutes", duration, "found", duration > 0));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("durationMinutes", 0, "found", false));
+        }
     }
 
-    /** GET /api/admin/trains/{trainId}/carriages — for trip wizard step 3 */
-    @GetMapping("/trains/{trainId}/carriages")
-    public ResponseEntity<List<Map<String, Object>>> trainCarriages(@PathVariable Integer trainId) {
-        List<Map<String, Object>> carriages = jdbc.queryForList("""
-                SELECT tc.id, tc.carriage_number, tc.carriage_type, tc.is_vip,
-                       COUNT(ts.id) AS seat_count
-                FROM train_carriages tc
-                LEFT JOIN train_seats ts ON ts.carriage_id = tc.id
-                WHERE tc.train_id = ?
-                GROUP BY tc.id, tc.carriage_number, tc.carriage_type, tc.is_vip
-                ORDER BY tc.carriage_number
-                """, trainId);
-        return ResponseEntity.ok(carriages);
+    // ─── Sinh ghế tự động ────────────────────────────────────────────────────────
+
+    private void generateSeats(Carriage carriage) {
+        List<Seat> seats = new ArrayList<>();
+        switch (carriage.getCarriageType()) {
+            case "seat" -> {
+                for (int i = 1; i <= 32; i++)
+                    seats.add(Seat.builder().carriage(carriage)
+                            .seatNumber(String.format("%02d", i)).berthPosition("seat").build());
+            }
+            case "sleeper_3" -> {
+                for (int k = 1; k <= 6; k++) {
+                    String p = String.format("%02d", k);
+                    seats.add(Seat.builder().carriage(carriage).seatNumber(p+"-L").compartmentNo(k).berthPosition("lower").build());
+                    seats.add(Seat.builder().carriage(carriage).seatNumber(p+"-M").compartmentNo(k).berthPosition("middle").build());
+                    seats.add(Seat.builder().carriage(carriage).seatNumber(p+"-U").compartmentNo(k).berthPosition("upper").build());
+                }
+            }
+            case "sleeper_2" -> {
+                for (int k = 1; k <= 6; k++) {
+                    String p = String.format("%02d", k);
+                    seats.add(Seat.builder().carriage(carriage).seatNumber(p+"-L").compartmentNo(k).berthPosition("lower").build());
+                    seats.add(Seat.builder().carriage(carriage).seatNumber(p+"-U").compartmentNo(k).berthPosition("upper").build());
+                }
+            }
+        }
+        seatRepo.saveAll(seats);
     }
 }

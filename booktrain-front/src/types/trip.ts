@@ -1,27 +1,26 @@
-export interface CarriagePrice {
+export interface CarriageSummary {
+    carriageOrder: number;
     carriageType: string;
-    carriageTypeLabel: string;
-    minPrice: number;
+    isVip: boolean;
+    amenities: string;
     availableSeats: number;
     totalSeats: number;
+    minPrice: number;
 }
 
 export interface TripResult {
-    id: number;
-    trainId: number;
+    tripId: number;
     trainCode: string;
     trainName: string;
-    originName: string;
-    destinationName: string;
-    departureTime: string;
-    arrivalTime: string;
-    departureDate: string;
-    duration: string;
+    fromStationName: string;
+    toStationName: string;
+    fromStationCode: string;
+    toStationCode: string;
+    boardTime: string;   // HH:mm
+    alightTime: string;  // HH:mm
+    boardDate: string;   // dd/MM/yyyy
+    alightDate: string;
+    duration: string;    // "Xh Yp"
     nextDay: boolean;
-    status: string;
-    boardStopOrder: number;
-    alightStopOrder: number;
-    boardDistanceKm: number;
-    alightDistanceKm: number;
-    carriagePrices: CarriagePrice[];
+    carriageSummary: CarriageSummary[];
 }
